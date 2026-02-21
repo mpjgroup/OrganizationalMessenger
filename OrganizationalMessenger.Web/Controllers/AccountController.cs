@@ -10,7 +10,7 @@ using OrganizationalMessenger.Infrastructure.Authentication;
 using OrganizationalMessenger.Infrastructure.Data;
 using OrganizationalMessenger.Infrastructure.Services;
 using System.Security.Claims;
-//14041202 Test2
+
 namespace OrganizationalMessenger.Web.Controllers
 {
     [AllowAnonymous]
