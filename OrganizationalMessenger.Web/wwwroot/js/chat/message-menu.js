@@ -113,47 +113,82 @@ export async function editMessage(messageId) {
     const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
     if (!messageEl) return;
 
-    // ✅ چک فوروارد بودن - فوروارد قابل ویرایش نیست
+    // ✅ چک فوروارد بودن
     if (messageEl.querySelector('.forwarded-badge')) {
         alert('پیام ارجاع‌شده قابل ویرایش نیست');
         return;
     }
 
-    // ✅ پیدا کردن متن قابل ویرایش
     let textEl = messageEl.querySelector('[data-editable="true"]');
     let currentText = textEl ? textEl.textContent.trim() : '';
-
-    // ✅ اگه متن خالیه (فایل بدون کپشن)، یه input خالی نشون بده
-    const input = document.getElementById('messageInput');
-    if (!input) return;
-
-    input.value = currentText;
-    input.focus();
-    input.dataset.editingMessageId = messageId;
-
-    // ✅ نشون بده داریم ویرایش میکنیم
-    let editBanner = document.getElementById('editBanner');
-    if (!editBanner) {
-        editBanner = document.createElement('div');
-        editBanner.id = 'editBanner';
-        editBanner.className = 'edit-banner';
-        editBanner.innerHTML = `
-            <div class="edit-banner-content">
-                <i class="fas fa-edit"></i>
-                <span>در حال ویرایش${currentText ? ': ' + currentText.substring(0, 30) + '...' : ' (افزودن کپشن)'}</span>
-                <button class="edit-cancel-btn" onclick="cancelEdit()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
-        const inputArea = document.getElementById('messageInputArea');
-        inputArea?.parentNode.insertBefore(editBanner, inputArea);
-    }
 
     // بستن منو
     const menu = document.getElementById(`menu-${messageId}`);
     if (menu) menu.style.display = 'none';
-};
+
+    // ✅ باز کردن پاپ‌آپ زیبا
+    showEditDialog(currentText, async (newText) => {
+        if (newText === currentText) return; // تغییری نشده
+
+        try {
+            const response = await fetch('/Chat/EditMessage', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': getCsrfToken()
+                },
+                body: JSON.stringify({
+                    messageId: messageId,
+                    newContent: newText
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // ✅ آپدیت DOM
+                if (textEl) {
+                    textEl.textContent = newText;
+                } else if (newText) {
+                    // فایل بدون کپشن بود، کپشن اضافه کن
+                    const contentDiv = messageEl.querySelector('.message-content');
+                    if (contentDiv) {
+                        const statusDiv = contentDiv.querySelector('.sent-info, .message-time');
+                        const captionEl = document.createElement('div');
+                        captionEl.className = 'message-caption';
+                        captionEl.dataset.editable = 'true';
+                        captionEl.textContent = newText;
+                        if (statusDiv) {
+                            contentDiv.insertBefore(captionEl, statusDiv);
+                        } else {
+                            contentDiv.appendChild(captionEl);
+                        }
+                    }
+                }
+
+                // ✅ اضافه کردن badge ویرایش
+                const sentInfo = messageEl.querySelector('.sent-info');
+                const messageTime = messageEl.querySelector('.message-time');
+                messageEl.querySelectorAll('.edited-badge').forEach(b => b.remove());
+                const editedBadge = '<span class="edited-badge">ویرایش شده</span>';
+                if (sentInfo) sentInfo.insertAdjacentHTML('beforeend', editedBadge);
+                else if (messageTime) messageTime.insertAdjacentHTML('beforeend', ' ' + editedBadge);
+
+                // ✅ اطلاع‌رسانی SignalR
+                if (window.connection?.state === signalR.HubConnectionState.Connected) {
+                    await window.connection.invoke("NotifyMessageEdited", messageId, newText, result.editedAt);
+                }
+
+                console.log('✅ Message edited successfully');
+            } else {
+                alert(result.message || 'خطا در ویرایش پیام');
+            }
+        } catch (error) {
+            console.error('❌ Edit error:', error);
+            alert('خطا در ویرایش پیام');
+        }
+    });
+}
 
 window.cancelEdit = function () {
     const input = document.getElementById('messageInput');

@@ -380,15 +380,13 @@ namespace OrganizationalMessenger.Web.Hubs
                     }).ToList()
                 };
 
-                // ✅ ارسال به گیرنده
-                var connections = GetUserConnections(receiverId);
-                if (connections != null)
-                {
-                    foreach (var connectionId in connections)
-                    {
-                        await Clients.Client(connectionId).SendAsync("ReceiveMessage", messageDto);
-                    }
 
+
+                await Clients.User(receiverId.ToString()).SendAsync("ReceiveMessage", messageDto);
+
+                // ✅ چک آنلاین بودن برای delivery
+                if (IsUserOnline(receiverId))
+                {
                     message.IsDelivered = true;
                     message.DeliveredAt = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
@@ -402,6 +400,11 @@ namespace OrganizationalMessenger.Web.Hubs
 
                 // ✅ تأیید به فرستنده
                 await Clients.Caller.SendAsync("MessageSent", messageDto);
+
+
+
+
+               
 
                 _logger.LogInformation($"✅ File message sent: {message.Id}");
             }

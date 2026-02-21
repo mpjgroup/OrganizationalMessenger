@@ -88,6 +88,7 @@ namespace OrganizationalMessenger.Web.Controllers
                 .Include(m => m.Attachments)
                 .Include(m => m.ReplyToMessage)
                     .ThenInclude(r => r.Sender)
+                     .Include(m => m.ForwardedFromUser)
                 .Include(m => m.Reactions)
                     .ThenInclude(r => r.User)
                 .Where(m => !m.IsSystemMessage);
@@ -173,6 +174,12 @@ namespace OrganizationalMessenger.Web.Controllers
                     ReplyToText = m.ReplyToMessage != null ? m.ReplyToMessage.Content : null,
                     ReplyToSenderName = m.ReplyToMessage != null
                         ? $"{m.ReplyToMessage.Sender.FirstName} {m.ReplyToMessage.Sender.LastName}"
+                        : null,
+                    // ✅ اضافه کن - فوروارد
+                    ForwardedFromMessageId = m.ForwardedFromMessageId,
+                    ForwardedFromUserId = m.ForwardedFromUserId,
+                    ForwardedFromUserName = m.ForwardedFromUser != null
+                        ? $"{m.ForwardedFromUser.FirstName} {m.ForwardedFromUser.LastName}"
                         : null,
                     Attachments = m.IsDeleted
                         ? new List<object>()
@@ -593,6 +600,11 @@ namespace OrganizationalMessenger.Web.Controllers
 
                 if (message == null)
                     return NotFound(new { success = false, message = "پیام یافت نشد یا دسترسی ندارید" });
+
+                // ✅ اضافه کن - فوروارد قابل ویرایش نیست
+                if (message.ForwardedFromMessageId.HasValue)
+                    return BadRequest(new { success = false, message = "پیام ارجاع‌شده قابل ویرایش نیست" });
+
 
                 var allowEdit = await _context.SystemSettings
                     .Where(s => s.Key == "AllowMessageEdit")
