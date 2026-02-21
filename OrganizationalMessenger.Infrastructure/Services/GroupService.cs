@@ -31,7 +31,7 @@ namespace OrganizationalMessenger.Infrastructure.Services
                 await _context.SaveChangesAsync();
 
                 // اضافه کردن سازنده به عنوان ادمین
-                var creatorMember = new GroupMember
+                var creatorMember = new UserGroup
                 {
                     GroupId = group.Id,
                     UserId = creatorId,
@@ -40,7 +40,7 @@ namespace OrganizationalMessenger.Infrastructure.Services
                     IsActive = true
                 };
 
-                _context.GroupMembers.Add(creatorMember);
+                _context.UserGroups.Add(creatorMember);
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation($"Group {group.Id} created by user {creatorId}");
@@ -57,14 +57,14 @@ namespace OrganizationalMessenger.Infrastructure.Services
         public async Task<Group> GetGroupByIdAsync(int groupId)
         {
             return await _context.Groups
-                .Include(g => g.Members)
+                .Include(g => g.UserGroups)
                     .ThenInclude(m => m.User)
                 .FirstOrDefaultAsync(g => g.Id == groupId);
         }
 
         public async Task<List<Group>> GetUserGroupsAsync(int userId)
         {
-            return await _context.GroupMembers
+            return await _context.UserGroups
                 .Where(gm => gm.UserId == userId && gm.IsActive)
                 .Include(gm => gm.Group)
                 .Select(gm => gm.Group)
@@ -87,7 +87,7 @@ namespace OrganizationalMessenger.Infrastructure.Services
                 throw new Exception("گروه یافت نشد");
             }
 
-            var existingMember = await _context.GroupMembers
+            var existingMember = await _context.UserGroups
                 .FirstOrDefaultAsync(gm => gm.GroupId == groupId && gm.UserId == userId);
 
             if (existingMember != null && existingMember.IsActive)
@@ -95,7 +95,7 @@ namespace OrganizationalMessenger.Infrastructure.Services
                 throw new Exception("کاربر قبلاً عضو این گروه است");
             }
 
-            var membersCount = await _context.GroupMembers
+            var membersCount = await _context.UserGroups
                 .CountAsync(gm => gm.GroupId == groupId && gm.IsActive);
 
             if (membersCount >= group.MaxMembers)
@@ -111,7 +111,7 @@ namespace OrganizationalMessenger.Infrastructure.Services
             }
             else
             {
-                var member = new GroupMember
+                var member = new UserGroup
                 {
                     GroupId = groupId,
                     UserId = userId,
@@ -119,7 +119,7 @@ namespace OrganizationalMessenger.Infrastructure.Services
                     JoinedAt = DateTime.UtcNow,
                     IsActive = true
                 };
-                _context.GroupMembers.Add(member);
+                _context.UserGroups.Add(member);
             }
 
             await _context.SaveChangesAsync();
@@ -129,7 +129,7 @@ namespace OrganizationalMessenger.Infrastructure.Services
 
         public async Task RemoveMemberAsync(int groupId, int userId)
         {
-            var member = await _context.GroupMembers
+            var member = await _context.UserGroups
                 .FirstOrDefaultAsync(gm => gm.GroupId == groupId && gm.UserId == userId && gm.IsActive);
 
             if (member == null)
@@ -151,13 +151,13 @@ namespace OrganizationalMessenger.Infrastructure.Services
 
         public async Task<bool> IsMemberAsync(int groupId, int userId)
         {
-            return await _context.GroupMembers
+            return await _context.UserGroups
                 .AnyAsync(gm => gm.GroupId == groupId && gm.UserId == userId && gm.IsActive);
         }
 
         public async Task<bool> IsAdminAsync(int groupId, int userId)
         {
-            var member = await _context.GroupMembers
+            var member = await _context.UserGroups
                 .FirstOrDefaultAsync(gm => gm.GroupId == groupId && gm.UserId == userId && gm.IsActive);
 
             return member?.Role == GroupRole.Admin || member?.Role == GroupRole.Owner;
@@ -184,7 +184,7 @@ namespace OrganizationalMessenger.Infrastructure.Services
 
         public async Task<List<User>> GetGroupMembersAsync(int groupId)
         {
-            return await _context.GroupMembers
+            return await _context.UserGroups
                 .Where(gm => gm.GroupId == groupId && gm.IsActive)
                 .Include(gm => gm.User)
                 .Select(gm => gm.User)
@@ -199,7 +199,7 @@ namespace OrganizationalMessenger.Infrastructure.Services
                 throw new Exception("شما مجوز ارتقا عضو را ندارید");
             }
 
-            var member = await _context.GroupMembers
+            var member = await _context.UserGroups
                 .FirstOrDefaultAsync(gm => gm.GroupId == groupId && gm.UserId == userId && gm.IsActive);
 
             if (member == null)
@@ -221,7 +221,7 @@ namespace OrganizationalMessenger.Infrastructure.Services
                 throw new Exception("شما مجوز تنزل رتبه را ندارید");
             }
 
-            var member = await _context.GroupMembers
+            var member = await _context.UserGroups
                 .FirstOrDefaultAsync(gm => gm.GroupId == groupId && gm.UserId == userId && gm.IsActive);
 
             if (member == null)

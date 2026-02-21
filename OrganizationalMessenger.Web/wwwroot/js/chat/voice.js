@@ -170,58 +170,7 @@ async function processVoiceMessage(audioBlob) {
         const result = await response.json();
 
         if (result.success) {
-            // ✅ استفاده از sendVoiceMessage
-            await sendVoiceMessage(result.file, duration);
-            hideUploadProgress();
-        } else {
-            alert(result.message || 'خطا در آپلود');
-            hideUploadProgress();
-        }
-    } catch (error) {
-        console.error('❌ Voice error:', error);
-        alert('خطا در ارسال پیام صوتی');
-        hideUploadProgress();
-    }
-}
-
-
-async function sendVoiceMessage(audioBlob) {
-    if (!currentChat) return;
-
-    const duration = Math.floor((Date.now() - recordingStartTime) / 1000);
-
-    if (duration < 1) {
-        console.log('⚠️ Audio too short');
-        return;
-    }
-
-    try {
-        showUploadProgress('پیام صوتی');
-
-        const audioFile = new File([audioBlob], `voice_${Date.now()}.webm`, {
-            type: 'audio/webm'
-        });
-
-        const formData = new FormData();
-        formData.append('file', audioFile);
-        formData.append('duration', duration);
-        formData.append('caption', '🎤 پیام صوتی');
-
-        // ✅ آپلود فایل
-        const response = await fetch('/api/File/upload', {
-            method: 'POST',
-            headers: {
-                'RequestVerificationToken': getCsrfToken()
-            },
-            body: formData
-        });
-
-        if (!response.ok) throw new Error('Upload failed');
-
-        const result = await response.json();
-
-        if (result.success) {
-            // ✅ ارسال پیام با SignalR
+            // ✅ مستقیماً SignalR رو صدا بزن - فقط یک بار آپلود!
             await sendVoiceMessageViaSignalR(result.file, duration);
             hideUploadProgress();
         } else {
@@ -234,6 +183,8 @@ async function sendVoiceMessage(audioBlob) {
         hideUploadProgress();
     }
 }
+
+
 
 // ✅ تابع جدید - فقط SignalR
 async function sendVoiceMessageViaSignalR(file, duration) {

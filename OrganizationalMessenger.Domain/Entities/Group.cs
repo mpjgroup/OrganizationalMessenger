@@ -13,7 +13,6 @@
         // Navigation Properties
         public User Creator { get; set; } = null!;
         public ICollection<UserGroup> UserGroups { get; set; } = new List<UserGroup>();
-        public ICollection<GroupMember> Members { get; set; } = new List<GroupMember>();
         public ICollection<Message> Messages { get; set; } = new List<Message>();
         public ICollection<Call> Calls { get; set; } = new List<Call>();
     }

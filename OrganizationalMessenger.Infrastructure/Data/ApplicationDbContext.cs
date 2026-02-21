@@ -20,7 +20,7 @@ namespace OrganizationalMessenger.Infrastructure.Data
         public DbSet<Channel> Channels { get; set; }
         public DbSet<UserGroup> UserGroups { get; set; }
         public DbSet<UserChannel> UserChannels { get; set; }
-        public DbSet<GroupMember> GroupMembers { get; set; }
+        
         public DbSet<Call> Calls { get; set; }
         public DbSet<MessageReaction> MessageReactions { get; set; }
         public DbSet<MessageRead> MessageReads { get; set; }
@@ -280,6 +280,13 @@ namespace OrganizationalMessenger.Infrastructure.Data
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
+
+            
+
+
+
+
+
             // ==================== UserChannel Configuration ====================
             // UserChannel Configuration
             modelBuilder.Entity<UserChannel>(entity =>
@@ -302,25 +309,7 @@ namespace OrganizationalMessenger.Infrastructure.Data
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // ==================== GroupMember Configuration ====================
-            modelBuilder.Entity<GroupMember>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).ValueGeneratedOnAdd();
-
-                entity.HasIndex(e => new { e.UserId, e.GroupId }).IsUnique();
-
-                entity.HasOne(e => e.User)
-                    .WithMany()
-                    .HasForeignKey(e => e.UserId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(e => e.Group)
-                    .WithMany(g => g.Members)
-                    .HasForeignKey(e => e.GroupId)
-                    .OnDelete(DeleteBehavior.Cascade);
-            });
-
+           
             // ==================== Call Configuration ====================
             modelBuilder.Entity<Call>(entity =>
             {

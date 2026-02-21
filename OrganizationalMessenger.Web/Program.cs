@@ -10,6 +10,7 @@ using OrganizationalMessenger.Infrastructure.Authentication.OrganizationalMessen
 using OrganizationalMessenger.Infrastructure.Data;
 using OrganizationalMessenger.Infrastructure.Services;
 using OrganizationalMessenger.Web.Hubs;
+using OrganizationalMessenger.Web.Services;
 using Westwind.AspNetCore.LiveReload;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -61,6 +62,10 @@ builder.Services.AddScoped<OtpService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddScoped<IAuthenticationManager, AuthenticationManager>();
 builder.Services.AddScoped<ISmsSender, TopTipSmsSender>();
+
+
+builder.Services.AddScoped<IAudioConverterService, AudioConverterService>();
+
 
 // Group & Channel Services
 builder.Services.AddScoped<IGroupService, OrganizationalMessenger.Infrastructure.Services.GroupService>();

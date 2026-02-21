@@ -18,14 +18,9 @@ namespace OrganizationalMessenger.Web.Hubs
         private readonly ApplicationDbContext _context;
         private readonly ILogger<ChatHub> _logger;
         private readonly IMessageService _messageService;
-
-        // 🚨 Thread-safe dictionary برای نگهداری ConnectionId های هر کاربر
         private static readonly ConcurrentDictionary<int, List<string>> _userConnections = new();
 
-        public ChatHub(
-            ApplicationDbContext context,
-            ILogger<ChatHub> logger,
-            IMessageService messageService)
+        public ChatHub(ApplicationDbContext context, ILogger<ChatHub> logger, IMessageService messageService)
         {
             _logger = logger;
             _context = context;
@@ -506,5 +501,424 @@ namespace OrganizationalMessenger.Web.Hubs
                 _logger.LogError(ex, "MarkReceivedMessagesAsDelivered error");
             }
         }
+
+
+
+
+
+
+        // ========================================
+        // ✅ گروه - ارسال پیام متنی
+        // ========================================
+        public async Task SendGroupMessage(int groupId, string messageText, int? replyToMessageId = null)
+        {
+            var senderId = GetUserId();
+            if (senderId == 0) return;
+
+            try
+            {
+                // ✅ اصلاح: UserGroups به جای GroupMembers + چک IsActive
+                var isMember = await _context.UserGroups
+                    .AnyAsync(ug => ug.GroupId == groupId && ug.UserId == senderId && ug.IsActive);
+                if (!isMember)
+                {
+                    await Clients.Caller.SendAsync("Error", "شما عضو این گروه نیستید");
+                    return;
+                }
+
+                var message = new Message
+                {
+                    SenderId = senderId,
+                    GroupId = groupId,
+                    Content = messageText,
+                    MessageText = messageText,
+                    Type = MessageType.Text,
+                    SentAt = DateTime.UtcNow,
+                    IsDelivered = false,
+                    ReplyToMessageId = replyToMessageId
+                };
+
+                _context.Messages.Add(message);
+                await _context.SaveChangesAsync();
+
+                await _context.Entry(message).Reference(m => m.Sender).LoadAsync();
+                if (replyToMessageId.HasValue)
+                {
+                    await _context.Entry(message).Reference(m => m.ReplyToMessage).LoadAsync();
+                    if (message.ReplyToMessage != null)
+                        await _context.Entry(message.ReplyToMessage).Reference(m => m.Sender).LoadAsync();
+                }
+
+                var messageDto = new
+                {
+                    id = message.Id,
+                    messageId = message.Id,
+                    chatId = groupId,
+                    chatType = "group",
+                    senderId = message.SenderId,
+                    senderName = $"{message.Sender.FirstName} {message.Sender.LastName}",
+                    senderAvatar = message.Sender.AvatarUrl ?? "/images/default-avatar.png",
+                    content = message.Content,
+                    messageText = message.MessageText,
+                    type = message.Type,
+                    sentAt = message.SentAt.ToString("o"),
+                    isDelivered = false,
+                    isRead = false,
+                    isEdited = false,
+                    replyToMessageId = message.ReplyToMessageId,
+                    replyToText = message.ReplyToMessage?.Content,
+                    replyToSenderName = message.ReplyToMessage != null
+                        ? $"{message.ReplyToMessage.Sender.FirstName} {message.ReplyToMessage.Sender.LastName}"
+                        : null,
+                    attachments = new List<object>()
+                };
+
+                // ✅ اصلاح: UserGroups + IsActive
+                var memberIds = await _context.UserGroups
+                    .Where(ug => ug.GroupId == groupId && ug.IsActive)
+                    .Select(ug => ug.UserId)
+                    .ToListAsync();
+
+                foreach (var memberId in memberIds)
+                {
+                    if (memberId == senderId) continue;
+                    var connections = GetUserConnections(memberId);
+                    if (connections != null)
+                    {
+                        foreach (var connId in connections)
+                            await Clients.Client(connId).SendAsync("ReceiveMessage", messageDto);
+                    }
+                }
+
+                await Clients.Caller.SendAsync("MessageSent", messageDto);
+                _logger.LogInformation($"✅ Group message sent: {message.Id} to group {groupId}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SendGroupMessage error");
+                await Clients.Caller.SendAsync("Error", "خطا در ارسال پیام گروهی");
+            }
+        }
+
+        // ========================================
+        // ✅ گروه - ارسال پیام با فایل
+        // ========================================
+        public async Task SendGroupMessageWithFile(int groupId, string messageText, int fileId, int? duration = null)
+        {
+            var senderId = GetUserId();
+            if (senderId == 0) return;
+
+            try
+            {
+                var isMember = await _context.UserGroups
+                    .AnyAsync(gm => gm.GroupId == groupId && gm.UserId == senderId);
+                if (!isMember)
+                {
+                    await Clients.Caller.SendAsync("Error", "شما عضو این گروه نیستید");
+                    return;
+                }
+
+                var file = await _context.FileAttachments.FindAsync(fileId);
+                if (file == null)
+                {
+                    _logger.LogError($"❌ File {fileId} not found");
+                    return;
+                }
+
+                MessageType messageType = MessageType.File;
+                if (file.FileType == "Audio") messageType = MessageType.Audio;
+                else if (file.FileType == "Image") messageType = MessageType.Image;
+                else if (file.FileType == "Video") messageType = MessageType.Video;
+
+                var message = new Message
+                {
+                    SenderId = senderId,
+                    GroupId = groupId,
+                    MessageText = messageText,
+                    Content = messageText,
+                    Type = messageType,
+                    SentAt = DateTime.UtcNow,
+                    IsDelivered = false,
+                    IsDeleted = false
+                };
+
+                _context.Messages.Add(message);
+                await _context.SaveChangesAsync();
+
+                file.MessageId = message.Id;
+                await _context.SaveChangesAsync();
+
+                await _context.Entry(message).Collection(m => m.Attachments).LoadAsync();
+                await _context.Entry(message).Reference(m => m.Sender).LoadAsync();
+
+                var messageDto = new
+                {
+                    id = message.Id,
+                    chatId = groupId,
+                    chatType = "group",
+                    senderId = message.SenderId,
+                    senderName = $"{message.Sender.FirstName} {message.Sender.LastName}",
+                    senderAvatar = message.Sender.AvatarUrl ?? "/images/default-avatar.png",
+                    content = message.Content,
+                    messageText = message.MessageText,
+                    type = message.Type,
+                    sentAt = message.SentAt.ToString("o"),
+                    isDelivered = false,
+                    isRead = false,
+                    attachments = message.Attachments.Select(f => new
+                    {
+                        id = f.Id,
+                        fileName = f.FileName,
+                        originalFileName = f.OriginalFileName,
+                        fileUrl = f.FileUrl,
+                        thumbnailUrl = f.ThumbnailUrl,
+                        fileType = f.FileType,
+                        fileSize = f.FileSize,
+                        width = f.Width,
+                        height = f.Height,
+                        extension = f.Extension,
+                        duration = f.Duration,
+                        readableSize = f.ReadableFileSize,
+                        readableDuration = f.ReadableDuration
+                    }).ToList()
+                };
+
+                // ارسال به اعضای گروه
+                var memberIds = await _context.UserGroups
+                    .Where(gm => gm.GroupId == groupId)
+                    .Select(gm => gm.UserId)
+                    .ToListAsync();
+
+                foreach (var memberId in memberIds)
+                {
+                    if (memberId == senderId) continue;
+                    var connections = GetUserConnections(memberId);
+                    if (connections != null)
+                    {
+                        foreach (var connId in connections)
+                            await Clients.Client(connId).SendAsync("ReceiveMessage", messageDto);
+                    }
+                }
+
+                await Clients.Caller.SendAsync("MessageSent", messageDto);
+                _logger.LogInformation($"✅ Group file message sent: {message.Id}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SendGroupMessageWithFile error");
+                await Clients.Caller.SendAsync("Error", $"خطا: {ex.Message}");
+            }
+        }
+
+        // ========================================
+        // ✅ کانال - ارسال پیام متنی
+        // ========================================
+        public async Task SendChannelMessage(int channelId, string messageText, int? replyToMessageId = null)
+        {
+            var senderId = GetUserId();
+            if (senderId == 0) return;
+
+            try
+            {
+                // بررسی ادمین بودن (فقط ادمین‌ها در کانال پیام میفرستن)
+                var membership = await _context.UserChannels
+                    .FirstOrDefaultAsync(cm => cm.ChannelId == channelId && cm.UserId == senderId);
+
+                if (membership == null)
+                {
+                    await Clients.Caller.SendAsync("Error", "شما عضو این کانال نیستید");
+                    return;
+                }
+
+                var message = new Message
+                {
+                    SenderId = senderId,
+                    ChannelId = channelId,
+                    Content = messageText,
+                    MessageText = messageText,
+                    Type = MessageType.Text,
+                    SentAt = DateTime.UtcNow,
+                    IsDelivered = false,
+                    ReplyToMessageId = replyToMessageId
+                };
+
+                _context.Messages.Add(message);
+                await _context.SaveChangesAsync();
+
+                await _context.Entry(message).Reference(m => m.Sender).LoadAsync();
+                if (replyToMessageId.HasValue)
+                {
+                    await _context.Entry(message).Reference(m => m.ReplyToMessage).LoadAsync();
+                    if (message.ReplyToMessage != null)
+                        await _context.Entry(message.ReplyToMessage).Reference(m => m.Sender).LoadAsync();
+                }
+
+                var messageDto = new
+                {
+                    id = message.Id,
+                    messageId = message.Id,
+                    chatId = channelId,
+                    chatType = "channel",
+                    senderId = message.SenderId,
+                    senderName = $"{message.Sender.FirstName} {message.Sender.LastName}",
+                    senderAvatar = message.Sender.AvatarUrl ?? "/images/default-avatar.png",
+                    content = message.Content,
+                    messageText = message.MessageText,
+                    type = message.Type,
+                    sentAt = message.SentAt.ToString("o"),
+                    isDelivered = false,
+                    isRead = false,
+                    isEdited = false,
+                    replyToMessageId = message.ReplyToMessageId,
+                    replyToText = message.ReplyToMessage?.Content,
+                    replyToSenderName = message.ReplyToMessage != null
+                        ? $"{message.ReplyToMessage.Sender.FirstName} {message.ReplyToMessage.Sender.LastName}"
+                        : null,
+                    attachments = new List<object>()
+                };
+
+                // ارسال به همه اعضای کانال
+                var memberIds = await _context.UserChannels
+                    .Where(cm => cm.ChannelId == channelId)
+                    .Select(cm => cm.UserId)
+                    .ToListAsync();
+
+                foreach (var memberId in memberIds)
+                {
+                    if (memberId == senderId) continue;
+                    var connections = GetUserConnections(memberId);
+                    if (connections != null)
+                    {
+                        foreach (var connId in connections)
+                            await Clients.Client(connId).SendAsync("ReceiveMessage", messageDto);
+                    }
+                }
+
+                await Clients.Caller.SendAsync("MessageSent", messageDto);
+                _logger.LogInformation($"✅ Channel message sent: {message.Id} to channel {channelId}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SendChannelMessage error");
+                await Clients.Caller.SendAsync("Error", "خطا در ارسال پیام کانال");
+            }
+        }
+
+        // ========================================
+        // ✅ کانال - ارسال پیام با فایل
+        // ========================================
+        public async Task SendChannelMessageWithFile(int channelId, string messageText, int fileId, int? duration = null)
+        {
+            var senderId = GetUserId();
+            if (senderId == 0) return;
+
+            try
+            {
+                var membership = await _context.UserChannels
+                    .FirstOrDefaultAsync(cm => cm.ChannelId == channelId && cm.UserId == senderId);
+
+                if (membership == null)
+                {
+                    await Clients.Caller.SendAsync("Error", "شما عضو این کانال نیستید");
+                    return;
+                }
+
+                var file = await _context.FileAttachments.FindAsync(fileId);
+                if (file == null)
+                {
+                    _logger.LogError($"❌ File {fileId} not found");
+                    return;
+                }
+
+                MessageType messageType = MessageType.File;
+                if (file.FileType == "Audio") messageType = MessageType.Audio;
+                else if (file.FileType == "Image") messageType = MessageType.Image;
+                else if (file.FileType == "Video") messageType = MessageType.Video;
+
+                var message = new Message
+                {
+                    SenderId = senderId,
+                    ChannelId = channelId,
+                    MessageText = messageText,
+                    Content = messageText,
+                    Type = messageType,
+                    SentAt = DateTime.UtcNow,
+                    IsDelivered = false,
+                    IsDeleted = false
+                };
+
+                _context.Messages.Add(message);
+                await _context.SaveChangesAsync();
+
+                file.MessageId = message.Id;
+                await _context.SaveChangesAsync();
+
+                await _context.Entry(message).Collection(m => m.Attachments).LoadAsync();
+                await _context.Entry(message).Reference(m => m.Sender).LoadAsync();
+
+                var messageDto = new
+                {
+                    id = message.Id,
+                    chatId = channelId,
+                    chatType = "channel",
+                    senderId = message.SenderId,
+                    senderName = $"{message.Sender.FirstName} {message.Sender.LastName}",
+                    senderAvatar = message.Sender.AvatarUrl ?? "/images/default-avatar.png",
+                    content = message.Content,
+                    messageText = message.MessageText,
+                    type = message.Type,
+                    sentAt = message.SentAt.ToString("o"),
+                    isDelivered = false,
+                    isRead = false,
+                    attachments = message.Attachments.Select(f => new
+                    {
+                        id = f.Id,
+                        fileName = f.FileName,
+                        originalFileName = f.OriginalFileName,
+                        fileUrl = f.FileUrl,
+                        thumbnailUrl = f.ThumbnailUrl,
+                        fileType = f.FileType,
+                        fileSize = f.FileSize,
+                        width = f.Width,
+                        height = f.Height,
+                        extension = f.Extension,
+                        duration = f.Duration,
+                        readableSize = f.ReadableFileSize,
+                        readableDuration = f.ReadableDuration
+                    }).ToList()
+                };
+
+                var memberIds = await _context.UserChannels
+                    .Where(cm => cm.ChannelId == channelId)
+                    .Select(cm => cm.UserId)
+                    .ToListAsync();
+
+                foreach (var memberId in memberIds)
+                {
+                    if (memberId == senderId) continue;
+                    var connections = GetUserConnections(memberId);
+                    if (connections != null)
+                    {
+                        foreach (var connId in connections)
+                            await Clients.Client(connId).SendAsync("ReceiveMessage", messageDto);
+                    }
+                }
+
+                await Clients.Caller.SendAsync("MessageSent", messageDto);
+                _logger.LogInformation($"✅ Channel file message sent: {message.Id}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SendChannelMessageWithFile error");
+                await Clients.Caller.SendAsync("Error", $"خطا: {ex.Message}");
+            }
+        }
+
+
+
+
+
+
+
     }
 }

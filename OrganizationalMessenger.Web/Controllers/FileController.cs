@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OrganizationalMessenger.Domain.Entities;
 using OrganizationalMessenger.Infrastructure.Data;
+using OrganizationalMessenger.Infrastructure.Services;
+using OrganizationalMessenger.Web.Services;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Processing;
@@ -17,11 +19,14 @@ namespace OrganizationalMessenger.Web.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
+        private readonly IAudioConverterService _audioConverter;
 
-        public FileController(ApplicationDbContext context, IWebHostEnvironment env)
+
+        public FileController(ApplicationDbContext context, IWebHostEnvironment env, IAudioConverterService audioConverter)
         {
             _context = context;
             _env = env;
+            _audioConverter = audioConverter;
         }
 
         /// <summary>
@@ -90,6 +95,28 @@ namespace OrganizationalMessenger.Web.Controllers
                 }
 
                 Console.WriteLine($"✅ File saved: {fullPath}");
+
+                // ✅ تبدیل webm به mp3 برای سازگاری با Safari/iOS
+                if (category == "audio" && extension == "webm")
+                {
+                    var convertedPath = await _audioConverter.ConvertToMp3Async(fullPath, uploadsPath);
+
+                    if (convertedPath != fullPath) // تبدیل موفق بود
+                    {
+                        var convertedFileName = Path.GetFileName(convertedPath);
+                        fullPath = convertedPath;
+                        fileName = convertedFileName;
+                        relativePath = $"/uploads/{subFolder}/{convertedFileName}";
+                        extension = "mp3";
+                        contentType = "audio/mpeg";
+
+                        Console.WriteLine($"✅ Audio converted: webm → mp3");
+                    }
+                }
+
+
+
+
 
                 // ✅ Thumbnail برای تصاویر
                 string? thumbnailUrl = null;

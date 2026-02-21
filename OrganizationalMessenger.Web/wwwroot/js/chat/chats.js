@@ -59,9 +59,7 @@ export function renderChatItem(chat) {
                 <span class="chat-name">${escapeHtml(chat.name)}</span>
                 ${unreadBadge}
             </div>
-            <div class="chat-preview">
-                <span class="message-time">${formatPersianTime(chat.lastMessageTime)}</span>
-            </div>
+           
         </div>
     `;
     container.appendChild(chatEl);

@@ -170,6 +170,8 @@ export async function loadMessages(append = false) {
             url += `&userId=${currentChat.id}`;
         } else if (currentChat.type === 'group') {
             url += `&groupId=${currentChat.id}`;
+        } else if (currentChat.type === 'channel') {
+            url += `&channelId=${currentChat.id}`;
         }
 
         if (append) {

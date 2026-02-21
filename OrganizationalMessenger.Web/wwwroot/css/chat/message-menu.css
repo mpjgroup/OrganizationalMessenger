@@ -10,11 +10,11 @@
 }
 
 .message.sent .message-menu {
-    right: 8px;
+    right: -30px;
 }
 
 .message.received .message-menu {
-    left: 8px;
+    left: -30px;
 }
 
 .message-menu-btn {
