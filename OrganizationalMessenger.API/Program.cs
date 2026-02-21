@@ -18,6 +18,9 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Message Service
+builder.Services.AddScoped<IMessageService, MessageService>();
+
 // Authentication Services
 builder.Services.AddScoped<IAuthenticationProvider, ActiveDirectoryProvider>();
 builder.Services.AddScoped<ErpAuthenticationProvider>();
