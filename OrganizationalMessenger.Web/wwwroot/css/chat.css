@@ -1,0 +1,28 @@
+﻿/* ============================================
+   Chat Styles - Master File
+   تمام استایل‌های چت از طریق import بارگذاری می‌شوند
+============================================ */
+
+@import url('./chat/variables.css');
+@import url('./chat/layout.css');
+@import url('./chat/header.css');
+@import url('./chat/chat-header.css');
+@import url('./chat/tabs.css');
+@import url('./chat/sidebar.css');
+@import url('./chat/messages.css');
+@import url('./chat/message-menu.css');
+@import url('./chat/reply.css');
+@import url('./chat/files.css');
+@import url('./chat/input.css');
+@import url('./chat/dialogs.css');
+@import url('./chat/forward.css');
+@import url('./chat/multi-select.css');
+@import url('./chat/voice.css');
+@import url('./chat/emoji.css');
+@import url('./chat/image-preview.css');
+@import url('./chat/utilities.css');
+@import url('./chat/animations.css');
+@import url('./chat/responsive.css');
+@import url('./chat/reactions.css');
+
+@import url('./chat/modules/group-channel.css');

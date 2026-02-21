@@ -1,0 +1,175 @@
+﻿@{
+    ViewData["Title"] = "چت";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var currentUser = ViewBag.CurrentUser as OrganizationalMessenger.Domain.Entities.User;
+}
+
+<!-- Anti-forgery token -->
+<form id="antiForgeryForm" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+
+<input type="hidden" id="currentUserId" value="@currentUser?.Id" />
+
+<div class="chat-container">
+    <!-- Sidebar -->
+    <div class="chat-sidebar">
+        <div class="chat-header">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="جستجو...">
+            </div>
+            <div class="header-right">
+                <span class="user-name">@currentUser?.FullName</span>
+                <img src="@(currentUser?.AvatarUrl ?? "/images/default-avatar.png")" class="logo">
+
+                <!-- ✅ دکمه منوی ایجاد -->
+                <button class="create-btn" id="createMenuBtn" title="ایجاد">
+                    <i class="fas fa-plus"></i>
+                </button>
+
+                <!-- ✅ منوی dropdown -->
+                <!-- در create-menu -->
+                <div class="create-menu" id="createMenu" style="display: none;">
+                    <button class="create-menu-item" id="createGroupBtn" style="display: none;">
+                        <i class="fas fa-users"></i>
+                        <span>گروه جدید</span>
+                    </button>
+                    <button class="create-menu-item" id="createChannelBtn" style="display: none;">
+                        <i class="fas fa-bullhorn"></i>
+                        <span>کانال جدید</span>
+                    </button>
+                </div>
+
+
+
+                <!-- دکمه خروج -->
+                <form asp-action="SignOut" asp-controller="Chat" method="post" class="logout-form">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="logout-btn" title="خروج">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ✅ تب‌ها -->
+        <div class="chat-tabs">
+            <button class="tab-btn active" data-tab="all">همه</button>
+            <button class="tab-btn" data-tab="private">خصوصی</button>
+            <button class="tab-btn" data-tab="groups">گروه‌ها</button>
+            <button class="tab-btn" data-tab="channels">کانال‌ها</button>
+        </div>
+
+        <!-- چت لیست -->
+        <div class="chat-list" id="chatList">
+            <!-- پر شده توسط JavaScript -->
+        </div>
+    </div>
+
+    <!-- Main Chat Area -->
+    <div class="chat-main">
+        <!-- Chat Header - کاملاً RTL -->
+        <div id="chatTopHeader" class="chat-header">
+            <!-- دکمه‌های سمت چپ -->
+            <div class="chat-actions-left">
+                
+                <button id="callVoiceBtn" class="header-btn" style="display:none;" title="تماس صوتی">
+                    <i class="fas fa-phone"></i>
+                </button>
+                <button id="callVideoBtn" class="header-btn" style="display:none;" title="تماس تصویری">
+                    <i class="fas fa-video"></i>
+                </button>
+            </div>
+
+            <!-- عنوان وسط -->
+            <div class="chat-title-container">
+                <div class="chat-avatar-small"></div>
+                <h2 id="chatTitle" class="chat-title">یک گفتگو انتخاب کنید</h2>
+                <span id="chatStatus" class="chat-status"></span>
+            </div>
+
+            <!-- دکمه‌های مدیریت سمت راست -->
+            <div class="chat-actions-right">
+                <button id="manageMembersBtn" class="header-btn" style="display:none;" title="مدیریت اعضا">
+                    <i class="fas fa-users-cog"></i>
+                </button>
+                <button id="moreBtn" class="header-btn" style="display:none;" title="گزینه‌های بیشتر">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+            </div>
+        </div>
+
+
+
+        <!-- پیامها -->
+        <div class="messages-container" id="messagesContainer">
+            <p class="empty-state">چتی را انتخاب کنید</p>
+        </div>
+
+        <!-- Message Input -->
+        <div id="replyPreviewContainer"></div>
+        <div class="message-input-area" id="messageInputArea" style="display: none;">
+            <div class="input-wrapper">
+                <button id="micBtn" class="input-btn" title="پیام صوتی">
+                    <i class="fas fa-microphone"></i>
+                </button>
+
+                <textarea id="messageInput"
+                          class="message-textarea"
+                          placeholder="پیام خود را بنویسید... (Shift+Enter برای خط جدید)"
+                          rows="1"></textarea>
+
+                <input type="file" id="fileInput" style="display:none">
+
+                <button id="attachBtn" class="input-btn" title="فایل ضمیمه کنید">
+                    <i class="fas fa-paperclip"></i>
+                </button>
+
+                <button id="emojiBtn" class="input-btn" title="ایموجی">😀</button>
+
+                <button id="sendBtn" class="input-btn send-btn" title="ارسال">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="emojiPickerContainer" style="display:none;"></div>
+
+<!-- Bottom Navigation -->
+<nav class="bottom-nav">
+    <button class="nav-btn" data-page="profile">
+        <i class="fas fa-user"></i>
+        <span>پروفایل</span>
+    </button>
+    <button class="nav-btn" data-page="services">
+        <i class="fas fa-th"></i>
+        <span>خدمات</span>
+    </button>
+    <button class="nav-btn active" data-page="chat">
+        <i class="fas fa-comments"></i>
+        <span>پیام</span>
+    </button>
+    <button class="nav-btn" data-page="calls">
+        <i class="fas fa-phone-alt"></i>
+        <span>تماسها</span>
+    </button>
+    <button class="nav-btn" data-page="dialer">
+        <i class="fas fa-keypad"></i>
+        <span>شماره‌گیری</span>
+    </button>
+</nav>
+
+<script>
+    const currentUserId = parseInt(document.getElementById('currentUserId')?.value || '0');
+    console.log('🔍 Current User ID:', currentUserId);
+</script>
+
+<link href="~/css/chat.css" rel="stylesheet" />
+
+<!-- SignalR Client -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+
+<script type="module" src="~/js/chat.js"></script>
