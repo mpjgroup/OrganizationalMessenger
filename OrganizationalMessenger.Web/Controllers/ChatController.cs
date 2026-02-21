@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using OrganizationalMessenger.Application.Interfaces;
 using OrganizationalMessenger.Domain.Entities;
 using OrganizationalMessenger.Domain.Enums;
 using OrganizationalMessenger.Infrastructure.Data;
@@ -16,12 +17,19 @@ namespace OrganizationalMessenger.Web.Controllers
     public class ChatController : Controller
     {
         private readonly ApplicationDbContext _context;
-        private readonly IHubContext<ChatHub> _hubContext; // ✅ 
-        public ChatController(ApplicationDbContext context, IHubContext<ChatHub> hubContext)
+        private readonly IHubContext<ChatHub> _hubContext;
+        private readonly IMessageService _messageService; // ✅ اضافه شد
+
+        public ChatController(
+            ApplicationDbContext context,
+            IHubContext<ChatHub> hubContext,
+            IMessageService messageService) // ✅ اضافه شد
         {
             _context = context;
             _hubContext = hubContext;
+            _messageService = messageService; // ✅ اضافه شد
         }
+
 
         // صفحه اصلی چت
         [HttpGet]
@@ -214,71 +222,57 @@ namespace OrganizationalMessenger.Web.Controllers
 
 
         // ✅ اصلاح SendMessage - با کپشن
-        [HttpPost]
-        [ValidateAntiForgeryToken]
+        [HttpPost("SendMessage")]
         public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request)
         {
-            var senderId = GetCurrentUserId();
-            if (senderId == null) return Unauthorized();
+            var userId = GetCurrentUserId();
+            if (userId == null) return Unauthorized();
 
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            if (request.ReceiverId == null && request.GroupId == null && request.ChannelId == null)
-                return BadRequest("ReceiverId or GroupId or ChannelId must be specified.");
-
-            var sender = await _context.Users.FindAsync(senderId.Value);
-            if (sender == null || !sender.IsActive)
-                return Unauthorized();
-
-            if (request.GroupId.HasValue)
+            try
             {
-                var isGroupMember = await _context.UserGroups
-                    .AnyAsync(ug => ug.UserId == senderId && ug.GroupId == request.GroupId && ug.IsActive);
-                if (!isGroupMember) return Forbid();
-            }
-
-            // ✅ Log برای debug
-            Console.WriteLine($"📝 MessageText received: {request.MessageText}");
-            var now = DateTime.UtcNow;
-            var message = new Message
-            {
-                SenderId = senderId.Value,
-                ReceiverId = request.ReceiverId,
-                GroupId = request.GroupId,
-                ChannelId = request.ChannelId,
-                MessageText = request.MessageText,      // ✅ کپشن
-                Content = request.MessageText,          // ✅ کپشن (هر دو فیلد)
-                Type = request.Type,
-                SentAt = now,
-                IsDelivered = false
-            };
-
-            _context.Messages.Add(message);
-            await _context.SaveChangesAsync();
-
-            Console.WriteLine($"✅ Message saved: Id={message.Id}, Content={message.Content}");
-
-            // اتصال فایل به پیام
-            if (request.FileAttachmentId.HasValue)
-            {
-                var file = await _context.FileAttachments
-                    .FirstOrDefaultAsync(f => f.Id == request.FileAttachmentId.Value &&
-                                             f.UploaderId == senderId.Value);
-                if (file != null)
+                // ✅ ایجاد پیام
+                var message = new Message
                 {
-                    file.MessageId = message.Id;
-                    await _context.SaveChangesAsync();
-                    Console.WriteLine($"✅ File attached: FileId={file.Id}, MessageId={message.Id}");
-                }
-            }
+                    SenderId = userId.Value,
+                    ReceiverId = request.ReceiverId,
+                    GroupId = request.GroupId,
+                    ChannelId = request.ChannelId,
+                    MessageText = request.MessageText,
+                    Content = request.MessageText,
+                    Type = (MessageType)request.Type,
+                    ReplyToMessageId = request.ReplyToId, // ✅ استفاده از ReplyToId
+                    SentAt = DateTime.Now,
+                    IsDelivered = false,
+                    IsDeleted = false
+                };
 
-            return Json(new
+                _context.Messages.Add(message);
+                await _context.SaveChangesAsync();
+
+                // ✅ اگر فایل دارد، MessageId را به‌روز کن
+                if (request.FileAttachmentId.HasValue)
+                {
+                    var file = await _context.FileAttachments.FindAsync(request.FileAttachmentId.Value);
+                    if (file != null)
+                    {
+                        file.MessageId = message.Id; // ✅ لینک کردن فایل به پیام
+                        await _context.SaveChangesAsync();
+                        Console.WriteLine($"✅ FileAttachment {file.Id} linked to Message {message.Id}");
+                    }
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    messageId = message.Id,
+                    sentAt = message.SentAt
+                });
+            }
+            catch (Exception ex)
             {
-                success = true,
-                messageId = message.Id,
-                sentAt = message.SentAt
-            });
+                Console.WriteLine($"❌ SendMessage error: {ex.Message}");
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
         }
 
 
@@ -1000,10 +994,11 @@ namespace OrganizationalMessenger.Web.Controllers
     {
         public int? ReceiverId { get; set; }
         public int? GroupId { get; set; }
-        public int? ChannelId { get; set; }
-        public string? MessageText { get; set; }
-        public MessageType Type { get; set; } = MessageType.Text;
-        public int? FileAttachmentId { get; set; }  // ✅ اضافه شد
-
+        public int? ChannelId { get; set; }  // ✅ برای کانال
+        public string MessageText { get; set; } = string.Empty;
+        public int Type { get; set; } = 0; // 0 = Text
+        public int? FileAttachmentId { get; set; }
+        public int? ReplyToId { get; set; }  // ✅ اضافه کنید
+        public int? Duration { get; set; }   // ✅ برای فایل‌های صوتی
     }
 }

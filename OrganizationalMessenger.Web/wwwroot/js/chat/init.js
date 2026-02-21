@@ -11,6 +11,9 @@ import './reactions.js';
 import './modules/group/group-manager.js';
 import './modules/channel/channel-manager.js';
 
+// ✅ اضافه کردن sendMessage
+import './sendMessage.js';
+
 export async function initChat() {
     window.currentUserId = parseInt(document.getElementById('currentUserId')?.value || '0');
     console.log('🔍 Current User ID:', window.currentUserId);
@@ -30,7 +33,7 @@ export async function initChat() {
 
     setupEventListeners();
     setupScrollListener();
-    setupCreateMenu(); // ✅ فعال‌سازی منوی ایجاد
+    setupCreateMenu();
 
     window.addEventListener('focus', function () {
         setIsPageFocused(true);
@@ -51,7 +54,7 @@ async function setupEventListeners() {
     console.log('🎯 Setting up event listeners...');
 
     const { selectChat, handleTabClick } = await import('./chats.js');
-    const { sendMessage } = await import('./reply.js');
+    const { sendTextMessage } = await import('./sendMessage.js'); // ✅ تغییر
     const { handleFileSelect } = await import('./files.js');
     const { toggleEmojiPicker } = await import('./emoji.js');
     const { setupVoiceRecording } = await import('./voice.js');
@@ -59,7 +62,7 @@ async function setupEventListeners() {
     const sendBtn = document.getElementById('sendBtn');
     if (sendBtn) {
         sendBtn.addEventListener('click', () => {
-            sendMessage();
+            sendTextMessage(); // ✅ تغییر
             setTimeout(() => {
                 removeUnreadSeparator();
             }, 500);
@@ -71,7 +74,7 @@ async function setupEventListeners() {
         messageInput.addEventListener('keydown', function (e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                sendMessage();
+                sendTextMessage(); // ✅ تغییر
                 setTimeout(() => {
                     removeUnreadSeparator();
                 }, 500);
@@ -114,20 +117,14 @@ async function setupEventListeners() {
     });
 
     setupVoiceRecording();
-
-
-    await setupHeaderEventListeners(); // ✅ اضافه کنید
-
+    await setupHeaderEventListeners();
 
     console.log('✅ Event listeners attached');
 }
 
-
-
 async function setupHeaderEventListeners() {
     console.log('🎯 Setting up header event listeners...');
 
-    // ✅ مدیریت اعضا
     const manageMembersBtn = document.getElementById('manageMembersBtn');
     if (manageMembersBtn) {
         manageMembersBtn.addEventListener('click', async (e) => {
@@ -145,7 +142,6 @@ async function setupHeaderEventListeners() {
         });
     }
 
-    // ✅ تماس صوتی
     const callVoiceBtn = document.getElementById('callVoiceBtn');
     if (callVoiceBtn) {
         callVoiceBtn.addEventListener('click', (e) => {
@@ -155,7 +151,6 @@ async function setupHeaderEventListeners() {
         });
     }
 
-    // ✅ تماس تصویری
     const callVideoBtn = document.getElementById('callVideoBtn');
     if (callVideoBtn) {
         callVideoBtn.addEventListener('click', (e) => {
@@ -165,34 +160,24 @@ async function setupHeaderEventListeners() {
         });
     }
 
-    // ✅ More button
     const moreBtn = document.getElementById('moreBtn');
     if (moreBtn) {
         moreBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             console.log('⋮⋮⋮ More clicked');
-            // Menu باز کردن
         });
     }
 
-    // ✅ Back button
     const backBtn = document.getElementById('backBtn');
     if (backBtn) {
         backBtn.addEventListener('click', () => {
             console.log('⬅️ Back clicked');
-           // loadChats('all'); // برگشت به لیست چت‌ها
         });
     }
 
     console.log('✅ Header event listeners attached');
 }
 
-
-
-
-
-
-// ✅ Setup منوی ایجاد
 function setupCreateMenu() {
     const createMenuBtn = document.getElementById('createMenuBtn');
     const createMenu = document.getElementById('createMenu');
@@ -204,7 +189,6 @@ function setupCreateMenu() {
             createMenu.style.display = isVisible ? 'none' : 'block';
         });
 
-        // بستن با کلیک بیرون
         document.addEventListener('click', (e) => {
             if (!createMenu.contains(e.target) && e.target !== createMenuBtn) {
                 createMenu.style.display = 'none';

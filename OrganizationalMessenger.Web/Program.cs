@@ -43,6 +43,8 @@ builder.Services.AddSignalR();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddScoped<IMessageService, MessageService>();
+
 // ✅ Session
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>

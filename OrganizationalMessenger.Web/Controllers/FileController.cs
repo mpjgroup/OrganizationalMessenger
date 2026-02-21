@@ -7,7 +7,6 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Processing;
 using System.Security.Claims;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace OrganizationalMessenger.Web.Controllers
 {
@@ -25,15 +24,14 @@ namespace OrganizationalMessenger.Web.Controllers
             _env = env;
         }
 
-        // ✅ آپلود فایل
-        // ✅ آپلود فایل - با کپشن
-
+        /// <summary>
+        /// ✅ آپلود فایل - بدون MessageId
+        /// </summary>
         [HttpPost("upload")]
         public async Task<IActionResult> UploadFile(
-    IFormFile file,
-    [FromForm] int? messageId = null,
-    [FromForm] string? caption = null,
-    [FromForm] int? duration = null)
+            IFormFile file,
+            [FromForm] string? caption = null,
+            [FromForm] int? duration = null)
         {
             var userId = GetCurrentUserId();
             if (userId == null) return Unauthorized();
@@ -44,25 +42,28 @@ namespace OrganizationalMessenger.Web.Controllers
             var extension = Path.GetExtension(file.FileName).ToLower().TrimStart('.');
             var contentType = file.ContentType;
 
-            // ✅ اگر duration داریم → حتماً Audio است
-            string category = null;
+            // ✅ تشخیص دسته‌بندی
+            string category = "document";
             if (duration.HasValue && duration.Value > 0)
             {
-                category = "Audio";
-                Console.WriteLine($"🎤 Detected voice message: duration={duration}s");
+                category = "audio";
+                Console.WriteLine($"🎤 Voice message detected: duration={duration}s");
+            }
+            else if (contentType.StartsWith("image/"))
+            {
+                category = "image";
+            }
+            else if (contentType.StartsWith("video/"))
+            {
+                category = "video";
             }
 
+            // ✅ بررسی مجوز فایل
             var uploadSetting = await _context.FileUploadSettings
                 .FirstOrDefaultAsync(f => f.FileType.ToLower() == extension && f.IsAllowed);
 
             if (uploadSetting == null)
                 return BadRequest(new { success = false, message = $"فرمت .{extension} مجاز نیست" });
-
-            // ✅ اگر duration داریم، category را Override کن
-            if (category == "Audio")
-            {
-                uploadSetting.Category = "Audio";
-            }
 
             if (file.Length > uploadSetting.MaxSize)
             {
@@ -72,37 +73,41 @@ namespace OrganizationalMessenger.Web.Controllers
 
             try
             {
-                var uploadsPath = Path.Combine(_env.WebRootPath, "uploads", uploadSetting.Category.ToLower());
+                // ✅ مسیر ذخیره‌سازی
+                var subFolder = category.ToLower();
+                var uploadsPath = Path.Combine(_env.WebRootPath, "uploads", subFolder);
                 if (!Directory.Exists(uploadsPath))
                     Directory.CreateDirectory(uploadsPath);
 
                 var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-                var filePath = Path.Combine(uploadsPath, fileName);
-                var fileUrl = $"/uploads/{uploadSetting.Category.ToLower()}/{fileName}";
+                var fullPath = Path.Combine(uploadsPath, fileName);
+                var relativePath = $"/uploads/{subFolder}/{fileName}";
 
-                using (var stream = new FileStream(filePath, FileMode.Create))
+                // ✅ ذخیره فایل
+                using (var stream = new FileStream(fullPath, FileMode.Create))
                 {
                     await file.CopyToAsync(stream);
                 }
 
+                Console.WriteLine($"✅ File saved: {fullPath}");
+
+                // ✅ Thumbnail برای تصاویر
                 string? thumbnailUrl = null;
-                string? thumbnailPath = null;
                 int? width = null, height = null;
 
-                if (uploadSetting.Category.ToLower() == "image")
+                if (category == "image")
                 {
                     try
                     {
-                        using var image = await SixLabors.ImageSharp.Image.LoadAsync(filePath);
+                        using var image = await SixLabors.ImageSharp.Image.LoadAsync(fullPath);
                         width = image.Width;
                         height = image.Height;
 
                         var thumbDir = Path.Combine(uploadsPath, "thumbs");
-                        if (!Directory.Exists(thumbDir))
-                            Directory.CreateDirectory(thumbDir);
+                        Directory.CreateDirectory(thumbDir);
 
                         var thumbFileName = $"thumb_{fileName}";
-                        thumbnailPath = Path.Combine(thumbDir, thumbFileName);
+                        var thumbnailPath = Path.Combine(thumbDir, thumbFileName);
 
                         var clone = image.Clone(x => x.Resize(new ResizeOptions
                         {
@@ -111,7 +116,8 @@ namespace OrganizationalMessenger.Web.Controllers
                         }));
 
                         await clone.SaveAsJpegAsync(thumbnailPath, new JpegEncoder { Quality = 80 });
-                        thumbnailUrl = $"/uploads/{uploadSetting.Category.ToLower()}/thumbs/{thumbFileName}";
+                        thumbnailUrl = $"/uploads/{subFolder}/thumbs/{thumbFileName}";
+                        Console.WriteLine($"✅ Thumbnail created: {thumbnailUrl}");
                     }
                     catch (Exception ex)
                     {
@@ -119,33 +125,34 @@ namespace OrganizationalMessenger.Web.Controllers
                     }
                 }
 
+                // ✅ Hash فایل
                 string? fileHash = null;
                 try
                 {
                     using var sha256 = System.Security.Cryptography.SHA256.Create();
-                    using var fileStream = System.IO.File.OpenRead(filePath);
+                    using var fileStream = System.IO.File.OpenRead(fullPath);
                     var hashBytes = await sha256.ComputeHashAsync(fileStream);
                     fileHash = BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
                 }
                 catch { }
 
+                // ✅ ثبت در دیتابیس - بدون MessageId
                 var fileAttachment = new FileAttachment
                 {
                     FileName = fileName,
                     OriginalFileName = file.FileName,
-                    FilePath = filePath,
-                    FileUrl = fileUrl,
+                    FilePath = fullPath,
+                    FileUrl = relativePath,
                     ContentType = contentType,
                     Extension = extension,
                     FileSize = file.Length,
-                    FileType = uploadSetting.Category, // ✅ Audio یا Video
-                    ThumbnailPath = thumbnailPath,
+                    FileType = CapitalizeFirst(category), // Image, Video, Audio, Document
                     ThumbnailUrl = thumbnailUrl,
                     Width = width,
                     Height = height,
-                    Duration = duration, // ✅
+                    Duration = duration,
                     UploaderId = userId.Value,
-                    MessageId = messageId,
+                    MessageId = null, // ✅ هنوز پیام ساخته نشده
                     CreatedAt = DateTime.Now,
                     FileHash = fileHash,
                     IsSafe = true,
@@ -155,7 +162,7 @@ namespace OrganizationalMessenger.Web.Controllers
                 _context.FileAttachments.Add(fileAttachment);
                 await _context.SaveChangesAsync();
 
-                Console.WriteLine($"✅ File uploaded: ID={fileAttachment.Id}, Type={fileAttachment.FileType}, Duration={duration}s");
+                Console.WriteLine($"✅ FileAttachment created: ID={fileAttachment.Id}, Type={fileAttachment.FileType}");
 
                 return Ok(new
                 {
@@ -167,7 +174,7 @@ namespace OrganizationalMessenger.Web.Controllers
                         originalFileName = fileAttachment.OriginalFileName,
                         fileUrl = fileAttachment.FileUrl,
                         thumbnailUrl = fileAttachment.ThumbnailUrl,
-                        fileType = fileAttachment.FileType, // ✅ Audio
+                        fileType = fileAttachment.FileType,
                         fileSize = fileAttachment.FileSize,
                         width = fileAttachment.Width,
                         height = fileAttachment.Height,
@@ -186,16 +193,9 @@ namespace OrganizationalMessenger.Web.Controllers
             }
         }
 
-
-
-
-
-
-
-
-
-
-        // ✅ دانلود فایل
+        /// <summary>
+        /// ✅ دانلود فایل
+        /// </summary>
         [HttpGet("download/{id}")]
         public async Task<IActionResult> DownloadFile(int id)
         {
@@ -209,26 +209,27 @@ namespace OrganizationalMessenger.Web.Controllers
                 return NotFound(new { success = false, message = "فایل یافت نشد" });
 
             if (!file.IsSafe)
-                return BadRequest(new { success = false, message = "این فایل امن نیست و قابل دانلود نمی‌باشد" });
+                return BadRequest(new { success = false, message = "این فایل امن نیست" });
 
             if (!System.IO.File.Exists(file.FilePath))
-                return NotFound(new { success = false, message = "فایل فیزیکی در سرور یافت نشد" });
+                return NotFound(new { success = false, message = "فایل فیزیکی یافت نشد" });
 
-            // ✅ افزایش شمارنده دانلود
             file.IncrementDownloadCount();
             await _context.SaveChangesAsync();
 
             var memory = new MemoryStream();
             using (var stream = new FileStream(file.FilePath, FileMode.Open))
             {
-                await stream.CopyToAsync(memory);
+                await stream.CopyToAsync(stream);
             }
             memory.Position = 0;
 
-            return File(memory, file.ContentType ?? "application/octet-stream", file.OriginalFileName);
+            return base.File(memory, file.ContentType ?? "application/octet-stream", file.OriginalFileName);
         }
 
-        // ✅ حذف فایل (soft delete)
+        /// <summary>
+        /// ✅ حذف فایل (soft delete)
+        /// </summary>
         [HttpDelete("delete/{id}")]
         public async Task<IActionResult> DeleteFile(int id)
         {
@@ -239,55 +240,12 @@ namespace OrganizationalMessenger.Web.Controllers
                 .FirstOrDefaultAsync(f => f.Id == id && f.UploaderId == userId.Value && !f.IsDeleted);
 
             if (file == null)
-                return NotFound(new { success = false, message = "فایل یافت نشد یا دسترسی ندارید" });
+                return NotFound(new { success = false, message = "فایل یافت نشد" });
 
             file.MarkAsDeleted();
             await _context.SaveChangesAsync();
 
-            return Ok(new { success = true, message = "فایل با موفقیت حذف شد" });
-        }
-
-        // ✅ دریافت لیست فایل‌های یک پیام
-        [HttpGet("message/{messageId}")]
-        public async Task<IActionResult> GetMessageFiles(int messageId)
-        {
-            var files = await _context.FileAttachments
-                .Where(f => f.MessageId == messageId && !f.IsDeleted)
-                .Select(f => new
-                {
-                    f.Id,
-                    f.OriginalFileName,
-                    f.FileUrl,
-                    f.ThumbnailUrl,
-                    f.FileType,
-                    f.FileSize,
-                    ReadableSize = f.ReadableFileSize,
-                    f.Width,
-                    f.Height,
-                    f.Extension,
-                    f.CreatedAt
-                })
-                .ToListAsync();
-
-            return Ok(new { success = true, files });
-        }
-
-        // ✅ دریافت تنظیمات آپلود فایل
-        [HttpGet("settings")]
-        public async Task<IActionResult> GetUploadSettings()
-        {
-            var settings = await _context.FileUploadSettings
-                .Where(f => f.IsAllowed)
-                .Select(f => new
-                {
-                    f.FileType,
-                    f.Category,
-                    f.MaxSize,
-                    MaxSizeMB = f.MaxSize / (1024.0 * 1024.0)
-                })
-                .ToListAsync();
-
-            return Ok(new { success = true, settings });
+            return Ok(new { success = true, message = "فایل حذف شد" });
         }
 
         // ========== متدهای کمکی ==========
@@ -296,8 +254,13 @@ namespace OrganizationalMessenger.Web.Controllers
         {
             var claim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (claim == null) return null;
-            if (int.TryParse(claim.Value, out var id)) return id;
-            return null;
+            return int.TryParse(claim.Value, out var id) ? id : null;
+        }
+
+        private string CapitalizeFirst(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            return char.ToUpper(text[0]) + text.Substring(1).ToLower();
         }
     }
 }

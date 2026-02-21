@@ -143,7 +143,8 @@ async function uploadFile(file, caption = '') {
         const result = await response.json();
 
         if (result.success) {
-            await sendFileMessage(result.file, caption);
+            // ✅ استفاده از SignalR
+            await sendFileViaSignalR(result.file, caption);
             hideUploadProgress();
         } else {
             alert(result.message || 'خطا در آپلود فایل');
@@ -156,49 +157,60 @@ async function uploadFile(file, caption = '') {
     }
 }
 
-// در تابع sendFileMessage:
+/**
+ * ✅ ارسال فایل از طریق SignalR
+ */
+async function sendFileViaSignalR(file, caption = '') {
+    if (!currentChat || !window.connection) {
+        console.error('❌ currentChat یا connection موجود نیست');
+        return;
+    }
 
-async function sendFileMessage(file, caption = '') {
-    // ✅ استفاده از window.connection بجای import
-    if (!currentChat || !window.connection) return;
+    if (window.connection.state !== signalR.HubConnectionState.Connected) {
+        console.error('❌ SignalR is not connected!');
+        alert('اتصال برقرار نیست');
+        return;
+    }
 
     const messageText = caption || `📎 ${file.originalFileName}`;
 
     try {
-        const response = await fetch('/Chat/SendMessage', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'RequestVerificationToken': getCsrfToken()
-            },
-            body: JSON.stringify({
-                receiverId: currentChat.type === 'private' ? currentChat.id : null,
-                groupId: currentChat.type === 'group' ? currentChat.id : null,
-                messageText: messageText,
-                type: getMessageType(file.fileType),
-                fileAttachmentId: file.id
-            })
-        });
+        console.log('📤 Sending file via SignalR...');
 
-        const result = await response.json();
-        if (result.success) {
-            // ✅ استفاده از window.connection
-            if (window.connection?.state === signalR.HubConnectionState.Connected) {
-                if (currentChat.type === 'private') {
-                    await window.connection.invoke(
-                        "SendPrivateMessageWithFile",
-                        currentChat.id,
-                        messageText,
-                        result.messageId,
-                        file.id
-                    );
-                }
-            }
+        if (currentChat.type === 'private') {
+            await window.connection.invoke(
+                "SendPrivateMessageWithFile",
+                currentChat.id,
+                messageText,
+                file.id,
+                null // duration
+            );
+        } else if (currentChat.type === 'group') {
+            await window.connection.invoke(
+                "SendGroupMessageWithFile",
+                currentChat.id,
+                messageText,
+                file.id,
+                null
+            );
+        } else if (currentChat.type === 'channel') {
+            await window.connection.invoke(
+                "SendChannelMessageWithFile",
+                currentChat.id,
+                messageText,
+                file.id,
+                null
+            );
         }
+
+        console.log('✅ File sent via SignalR');
+        scrollToBottom();
     } catch (error) {
-        console.error('❌ Send file message error:', error);
+        console.error('❌ Send file error:', error);
+        alert('خطا در ارسال فایل');
     }
 }
+
 function getMessageType(fileType) {
     const typeMap = {
         'Image': 1,
@@ -273,9 +285,7 @@ export function renderFileAttachment(file, isSent) {
         `;
     }
     else if (fileType === 'Audio') {
-        // اگر می‌خواهی جهت‌دار شود، می‌توانی کلاس را به خروجی player هم اضافه کنی
         const html = window.renderAudioPlayer(file);
-        // مثلا اگر renderAudioPlayer خودش div.message-file بسازد، می‌شود بعداً با JS کلاس اضافه کرد
         return html;
     }
     else {
@@ -314,8 +324,6 @@ function getFileIcon(fileType, extension) {
     return 'fas fa-file';
 }
 
-
-
 // ✅ Export to window for onclick handlers
 window.closeCaptionDialog = closeCaptionDialog;
 window.sendFileWithCaption = sendFileWithCaption;
@@ -324,3 +332,5 @@ window.openImagePreview = function (url) {
         module.openImagePreview(url);
     });
 };
+
+console.log('✅ files.js loaded');

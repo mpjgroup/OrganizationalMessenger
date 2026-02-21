@@ -36,7 +36,7 @@ export function handleReceiveMessage(data) {
         } else {
             setTimeout(() => {
                 if (connection?.state === signalR.HubConnectionState.Connected) {
-                    connection.invoke("ConfirmDelivery", data.id);
+                    connection.invoke("ConfirmDelivery", parseInt(data.id)); 
                 }
             }, 100);
         }

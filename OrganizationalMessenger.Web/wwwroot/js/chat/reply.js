@@ -1,8 +1,8 @@
 ﻿// ============================================
-// Reply Functionality
+// Reply Functionality v2.1
 // ============================================
 
-import { replyingToMessage, setReplyingToMessage, connection, currentChat } from './variables.js';
+import { replyingToMessage, setReplyingToMessage } from './variables.js';
 import { escapeHtml } from './utils.js';
 
 export function replyToMessage(messageId) {
@@ -13,7 +13,6 @@ export function replyToMessage(messageId) {
 
     const textEl = messageEl.querySelector('[data-editable="true"]');
     const senderEl = messageEl.querySelector('.message-sender');
-
     const imageEl = messageEl.querySelector('.message-file.image-file img');
     const videoEl = messageEl.querySelector('.message-file.video-file video');
 
@@ -109,35 +108,8 @@ export function cancelReply() {
     if (preview) preview.remove();
 }
 
-// در تابع sendMessage:
-
-export async function sendMessage() {
-    const input = document.getElementById('messageInput');
-    const text = input.value.trim();
-
-    // ✅ استفاده از window.connection
-    if (!text || !currentChat || !window.connection) return;
-
-    if (currentChat.type === 'private') {
-        await window.connection.invoke("SendPrivateMessage",
-            currentChat.id,
-            text,
-            replyingToMessage ? replyingToMessage.id : null
-        );
-    }
-
-    input.value = '';
-    input.style.height = 'auto';
-    input.style.overflowY = 'hidden';
-
-    cancelReply();
-    hideTypingIndicator();
-}
-function hideTypingIndicator() {
-    const typingEl = document.getElementById('typingIndicator');
-    if (typingEl) typingEl.style.display = 'none';
-}
-
 // Export to window
 window.replyToMessage = replyToMessage;
 window.cancelReply = cancelReply;
+
+console.log('✅ reply.js v2.1 loaded');

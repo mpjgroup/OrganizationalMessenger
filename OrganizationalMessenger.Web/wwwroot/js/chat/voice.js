@@ -1,5 +1,5 @@
 ﻿// ============================================
-// Voice Recording & Player
+// Voice Recording & Player v2.0
 // ============================================
 
 import {
@@ -49,7 +49,7 @@ async function startRecording(e) {
 
         mediaRecorder.onstop = async () => {
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            await sendVoiceMessage(audioBlob);
+            await processVoiceMessage(audioBlob);
             stream.getTracks().forEach(track => track.stop());
         };
 
@@ -102,7 +102,6 @@ function cancelRecording(e) {
 
 function showRecordingTimer() {
     const inputWrapper = document.querySelector('.input-wrapper');
-
     const timer = document.createElement('div');
     timer.id = 'recordingTimer';
     timer.className = 'recording-timer';
@@ -138,7 +137,7 @@ function hideRecordingTimer() {
     }
 }
 
-async function sendVoiceMessage(audioBlob) {
+async function processVoiceMessage(audioBlob) {
     if (!currentChat) return;
 
     const duration = Math.floor((Date.now() - recordingStartTime) / 1000);
@@ -162,9 +161,7 @@ async function sendVoiceMessage(audioBlob) {
 
         const response = await fetch('/api/File/upload', {
             method: 'POST',
-            headers: {
-                'RequestVerificationToken': getCsrfToken()
-            },
+            headers: { 'RequestVerificationToken': getCsrfToken() },
             body: formData
         });
 
@@ -173,7 +170,8 @@ async function sendVoiceMessage(audioBlob) {
         const result = await response.json();
 
         if (result.success) {
-            await sendFileMessage(result.file, result.caption || '🎤 پیام صوتی');
+            // ✅ استفاده از sendVoiceMessage
+            await sendVoiceMessage(result.file, duration);
             hideUploadProgress();
         } else {
             alert(result.message || 'خطا در آپلود');
@@ -186,25 +184,110 @@ async function sendVoiceMessage(audioBlob) {
     }
 }
 
-function showUploadProgress(fileName) {
-    const container = document.getElementById('messagesContainer');
-    const progressEl = document.createElement('div');
-    progressEl.id = 'uploadProgress';
-    progressEl.className = 'upload-progress';
-    progressEl.innerHTML = `
-        <div class="upload-progress-content">
-            <div class="spinner"></div>
-            <span>در حال آپلود: ${fileName}</span>
-        </div>
-    `;
-    container.appendChild(progressEl);
-    scrollToBottom();
+
+async function sendVoiceMessage(audioBlob) {
+    if (!currentChat) return;
+
+    const duration = Math.floor((Date.now() - recordingStartTime) / 1000);
+
+    if (duration < 1) {
+        console.log('⚠️ Audio too short');
+        return;
+    }
+
+    try {
+        showUploadProgress('پیام صوتی');
+
+        const audioFile = new File([audioBlob], `voice_${Date.now()}.webm`, {
+            type: 'audio/webm'
+        });
+
+        const formData = new FormData();
+        formData.append('file', audioFile);
+        formData.append('duration', duration);
+        formData.append('caption', '🎤 پیام صوتی');
+
+        // ✅ آپلود فایل
+        const response = await fetch('/api/File/upload', {
+            method: 'POST',
+            headers: {
+                'RequestVerificationToken': getCsrfToken()
+            },
+            body: formData
+        });
+
+        if (!response.ok) throw new Error('Upload failed');
+
+        const result = await response.json();
+
+        if (result.success) {
+            // ✅ ارسال پیام با SignalR
+            await sendVoiceMessageViaSignalR(result.file, duration);
+            hideUploadProgress();
+        } else {
+            alert(result.message || 'خطا در آپلود');
+            hideUploadProgress();
+        }
+    } catch (error) {
+        console.error('❌ Voice error:', error);
+        alert('خطا در ارسال پیام صوتی');
+        hideUploadProgress();
+    }
 }
 
-function hideUploadProgress() {
-    document.getElementById('uploadProgress')?.remove();
-}
+// ✅ تابع جدید - فقط SignalR
+async function sendVoiceMessageViaSignalR(file, duration) {
+    if (!currentChat || !window.connection) {
+        console.error('❌ currentChat یا connection موجود نیست');
+        return;
+    }
 
+    if (window.connection.state !== signalR.HubConnectionState.Connected) {
+        console.error('❌ SignalR is not connected!');
+        alert('اتصال برقرار نیست');
+        return;
+    }
+
+    const messageText = '🎤 پیام صوتی';
+
+    try {
+        console.log('📤 Sending voice message via SignalR...');
+
+        if (currentChat.type === 'private') {
+            // ✅ فقط SignalR
+            await window.connection.invoke(
+                "SendPrivateMessageWithFile",
+                currentChat.id,
+                messageText,
+                file.id,
+                duration
+            );
+        } else if (currentChat.type === 'group') {
+            await window.connection.invoke(
+                "SendGroupMessageWithFile",
+                currentChat.id,
+                messageText,
+                file.id,
+                duration
+            );
+        } else if (currentChat.type === 'channel') {
+            await window.connection.invoke(
+                "SendChannelMessageWithFile",
+                currentChat.id,
+                messageText,
+                file.id,
+                duration
+            );
+        }
+
+        console.log('✅ Voice message sent via SignalR');
+        scrollToBottom();
+    } catch (error) {
+        console.error('❌ Send voice message error:', error);
+        alert('خطا در ارسال پیام صوتی');
+    }
+}
+// ✅ تابع کمکی
 async function sendFileMessage(file, caption) {
     if (!currentChat || !window.connection) return;
 
@@ -221,7 +304,7 @@ async function sendFileMessage(file, caption) {
                 receiverId: currentChat.type === 'private' ? currentChat.id : null,
                 groupId: currentChat.type === 'group' ? currentChat.id : null,
                 messageText: messageText,
-                type: 3,
+                type: 3, // Audio
                 fileAttachmentId: file.id
             })
         });
@@ -245,10 +328,51 @@ async function sendFileMessage(file, caption) {
     }
 }
 
+
+
+
+
+
+
+
+function showUploadProgress(fileName) {
+    const container = document.getElementById('messagesContainer');
+    const progressEl = document.createElement('div');
+    progressEl.id = 'uploadProgress';
+    progressEl.className = 'upload-progress';
+    progressEl.innerHTML = `
+        <div class="upload-progress-content">
+            <div class="spinner"></div>
+            <span>در حال آپلود: ${fileName}</span>
+        </div>
+    `;
+    container.appendChild(progressEl);
+    scrollToBottom();
+}
+
+function hideUploadProgress() {
+    document.getElementById('uploadProgress')?.remove();
+}
+
 export function renderAudioPlayer(file) {
     const audioId = `audio_${file.id}`;
     const duration = file.duration || 0;
     const durationText = formatDuration(duration);
+
+    // ✅ بررسی وجود URL
+    if (!file.fileUrl) {
+        console.error('❌ File URL is missing:', file);
+        return `<div class="message-file audio-file voice-message">❌ فایل یافت نشد</div>`;
+    }
+
+    // ✅ تشخیص فرمت
+    const ext = file.extension?.toLowerCase() || '.webm';
+    let mimeType = 'audio/webm';
+
+    if (['.mp3'].includes(ext)) mimeType = 'audio/mpeg';
+    else if (['.ogg'].includes(ext)) mimeType = 'audio/ogg';
+    else if (['.m4a'].includes(ext)) mimeType = 'audio/mp4';
+    else if (['.wav'].includes(ext)) mimeType = 'audio/wav';
 
     return `
         <div class="message-file audio-file voice-message" data-audio-id="${file.id}">
@@ -268,7 +392,10 @@ export function renderAudioPlayer(file) {
                     </button>
                 </div>
             </div>
-            <audio id="${audioId}" src="${file.fileUrl}" preload="metadata"></audio>
+            <audio id="${audioId}" preload="metadata">
+                <source src="${file.fileUrl}" type="${mimeType}">
+                مرورگر شما از پخش فایل صوتی پشتیبانی نمی‌کند.
+            </audio>
         </div>
     `;
 }
@@ -278,27 +405,49 @@ export function toggleVoicePlay(fileId) {
     const container = document.querySelector(`.message-file[data-audio-id="${fileId}"]`);
     const btn = container?.querySelector('.voice-play-btn');
 
-    if (!audio || !btn) return;
+    if (!audio || !btn) {
+        console.error('❌ Audio element not found:', fileId);
+        return;
+    }
+
+    // ✅ بررسی منبع ف��یل
+    const source = audio.querySelector('source');
+    if (!source || !source.src) {
+        console.error('❌ Audio source is missing:', fileId);
+        alert('فایل صوتی یافت نشد');
+        return;
+    }
+
+    console.log('🎵 Audio source:', source.src);
+    console.log('🎵 Audio ready state:', audio.readyState);
+    console.log('🎵 Audio network state:', audio.networkState);
 
     if (currentPlayingAudio && currentPlayingAudio !== audio) {
         stopVoicePlay(currentPlayingAudio);
     }
 
     if (audio.paused) {
-        audio.play();
-        btn.innerHTML = '<i class="fas fa-pause"></i>';
-        btn.classList.add('playing');
-        setCurrentPlayingAudio(audio);
+        audio.play()
+            .then(() => {
+                console.log('✅ Audio playing');
+                btn.innerHTML = '<i class="fas fa-pause"></i>';
+                btn.classList.add('playing');
+                setCurrentPlayingAudio(audio);
 
-        audio.ontimeupdate = () => {
-            updateVoiceDuration(fileId, audio);
-            updateProgressBar(fileId, audio);
-        };
+                audio.ontimeupdate = () => {
+                    updateVoiceDuration(fileId, audio);
+                    updateProgressBar(fileId, audio);
+                };
 
-        audio.onended = () => {
-            stopVoicePlay(audio);
-            resetVoiceUI(fileId);
-        };
+                audio.onended = () => {
+                    stopVoicePlay(audio);
+                    resetVoiceUI(fileId);
+                };
+            })
+            .catch(error => {
+                console.error('❌ Play error:', error);
+                alert(`خطا در پخش: ${error.message}`);
+            });
     } else {
         stopVoicePlay(audio);
     }
@@ -306,7 +455,6 @@ export function toggleVoicePlay(fileId) {
 
 function stopVoicePlay(audio) {
     if (!audio) return;
-
     audio.pause();
 
     const audioId = audio.id.replace('audio_', '');
@@ -323,7 +471,6 @@ function stopVoicePlay(audio) {
 
 function updateProgressBar(fileId, audio) {
     const progressFill = document.getElementById(`progress_${fileId}`);
-
     if (!progressFill || !audio.duration) return;
 
     const percent = (audio.currentTime / audio.duration) * 100;
@@ -332,7 +479,6 @@ function updateProgressBar(fileId, audio) {
 
 function updateVoiceDuration(fileId, audio) {
     const durationEl = document.getElementById(`duration_${fileId}`);
-
     if (!durationEl || !audio.duration) return;
 
     const remaining = Math.ceil(audio.duration - audio.currentTime);
@@ -366,7 +512,6 @@ export function seekVoice(event, fileId) {
     const percent = clickX / rect.width;
 
     audio.currentTime = percent * audio.duration;
-
     console.log(`⏩ Seek to ${Math.floor(percent * 100)}%`);
 }
 
@@ -392,3 +537,5 @@ window.renderAudioPlayer = renderAudioPlayer;
 window.toggleVoicePlay = toggleVoicePlay;
 window.seekVoice = seekVoice;
 window.changeVoiceSpeed = changeVoiceSpeed;
+
+console.log('✅ voice.js v2.0 loaded');

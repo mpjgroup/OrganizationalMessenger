@@ -4,8 +4,13 @@
 
 // SignalR Connection
 export let connection = null;
+
 export function setConnection(conn) {
     connection = conn;
+    // ✅ اضافه کردن به window برای دسترسی global
+    if (typeof window !== 'undefined') {
+        window.connection = conn;
+    }
 }
 
 // Current Chat
