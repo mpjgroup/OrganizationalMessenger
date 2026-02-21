@@ -360,7 +360,12 @@ namespace OrganizationalMessenger.Web.Controllers
                         .Where(m => m.GroupId == ug.GroupId && !m.IsDeleted)
                         .OrderByDescending(m => m.Id)
                         .FirstOrDefaultAsync();
-
+                    var unreadCount = await _context.Messages
+                        .Where(m => m.GroupId == ug.GroupId &&
+                                    !m.IsDeleted &&
+                                    m.SenderId != userId &&  // پیام‌های خودم رو نشمار
+                                    !_context.MessageReads.Any(mr => mr.MessageId == m.Id && mr.UserId == userId))
+                        .CountAsync();
                     var memberCount = await _context.UserGroups
                         .CountAsync(x => x.GroupId == ug.GroupId && x.IsActive);
 
@@ -372,11 +377,11 @@ namespace OrganizationalMessenger.Web.Controllers
                         avatar = ug.Group.AvatarUrl ?? "/images/default-group.png",
                         isOnline = false,
                         lastMessage = lastMessage != null ?
-                        (lastMessage.MessageText ?? lastMessage.Content ?? "") : "بدون پیام",
+                         (lastMessage.MessageText ?? lastMessage.Content ?? "") : "بدون پیام",
                         lastMessageTime = lastMessage?.SentAt ?? ug.Group.CreatedAt,
-                        lastMessageId = lastMessage?.Id ?? 0,   // 👈
+                        lastMessageId = lastMessage?.Id ?? 0,
                         memberCount,
-                        unreadCount = 0,
+                        unreadCount,  // ✅ حالا واقعی حساب میشه
                         role = ug.Role.ToString(),
                         isAdmin = ug.IsAdmin,
                         isMuted = ug.IsMuted
@@ -401,6 +406,12 @@ namespace OrganizationalMessenger.Web.Controllers
                         .OrderByDescending(m => m.Id)
                         .FirstOrDefaultAsync();
 
+                    var unreadCount = await _context.Messages
+                        .Where(m => m.ChannelId == uc.ChannelId &&
+                                    !m.IsDeleted &&
+                                    m.SenderId != userId &&
+                                    !_context.MessageReads.Any(mr => mr.MessageId == m.Id && mr.UserId == userId))
+                        .CountAsync();
                     chats.Add(new
                     {
                         type = "channel",
@@ -409,11 +420,11 @@ namespace OrganizationalMessenger.Web.Controllers
                         avatar = uc.Channel.AvatarUrl ?? "/images/default-channel.png",
                         isOnline = false,
                         lastMessage = lastMessage != null ?
-        (lastMessage.MessageText ?? lastMessage.Content ?? "") : "بدون پیام",
+                            (lastMessage.MessageText ?? lastMessage.Content ?? "") : "بدون پیام",
                         lastMessageTime = lastMessage?.SentAt ?? uc.Channel.CreatedAt,
-                        lastMessageId = lastMessage?.Id ?? 0,   // 👈
+                        lastMessageId = lastMessage?.Id ?? 0,
                         memberCount = uc.Channel.MemberCount,
-                        unreadCount = uc.UnreadCount,
+                        unreadCount,  // ✅ واقعی
                         role = uc.Role.ToString(),
                         isAdmin = uc.IsAdmin,
                         canPost = uc.CanPost,
@@ -449,17 +460,26 @@ namespace OrganizationalMessenger.Web.Controllers
             var userId = GetCurrentUserId();
             if (userId == null) return Unauthorized();
 
+            if (request?.MessageIds == null || !request.MessageIds.Any())
+                return Json(new { success = true, markedCount = 0 });
+
             var now = DateTime.Now;
+
+            // ✅ پیام‌هایی که باید read بشن (خصوصی + گروه + کانال)
             var messagesToMark = await _context.Messages
                 .Where(m => request.MessageIds.Contains(m.Id) &&
-                           m.ReceiverId == userId.Value &&  // فقط پیام‌های دریافتی
-                           m.SenderId != userId.Value)      // 🚨 و نه ارسالی خودم!
+                            m.SenderId != userId.Value)  // ✅ فقط پیام‌های دیگران (نه خودم)
                 .ToListAsync();
+
+            var markedCount = 0;
 
             foreach (var message in messagesToMark)
             {
-                if (!await _context.MessageReads.AnyAsync(mr =>
-                    mr.MessageId == message.Id && mr.UserId == userId.Value))
+                // ✅ چک کن قبلاً read نشده باشه
+                var alreadyRead = await _context.MessageReads
+                    .AnyAsync(mr => mr.MessageId == message.Id && mr.UserId == userId.Value);
+
+                if (!alreadyRead)
                 {
                     _context.MessageReads.Add(new MessageRead
                     {
@@ -467,13 +487,17 @@ namespace OrganizationalMessenger.Web.Controllers
                         UserId = userId.Value,
                         ReadAt = now
                     });
+                    markedCount++;
                 }
             }
 
-            await _context.SaveChangesAsync();
-            return Json(new { success = true, markedCount = messagesToMark.Count });
-        }
+            if (markedCount > 0)
+            {
+                await _context.SaveChangesAsync();
+            }
 
+            return Json(new { success = true, markedCount });
+        }
 
         // ✅ کلاس DTO (فقط 1 بار - خط آخر کلاس)
         public class MarkAsReadRequest
@@ -980,7 +1004,64 @@ namespace OrganizationalMessenger.Web.Controllers
         }
 
 
+        [HttpGet]
+        [Route("Chat/GetMessageViewStats")]
+        public async Task<IActionResult> GetMessageViewStats(int messageId)
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null) return Unauthorized();
 
+            var message = await _context.Messages
+                .Include(m => m.Sender)
+                .FirstOrDefaultAsync(m => m.Id == messageId);
+
+            if (message == null) return NotFound();
+
+            // تعداد کل اعضا
+            int totalMembers = 0;
+            if (message.GroupId.HasValue)
+            {
+                totalMembers = await _context.UserGroups
+                    .CountAsync(ug => ug.GroupId == message.GroupId && ug.IsActive);
+            }
+            else if (message.ChannelId.HasValue)
+            {
+                totalMembers = await _context.UserChannels
+                    .CountAsync(uc => uc.ChannelId == message.ChannelId && uc.IsActive);
+            }
+            else
+            {
+                totalMembers = 2; // چت خصوصی: فرستنده + گیرنده
+            }
+
+            // کسانی که دیده‌اند
+            var readers = await _context.MessageReads
+                .Where(mr => mr.MessageId == messageId)
+                .Include(mr => mr.User)
+                .OrderByDescending(mr => mr.ReadAt)
+                .Select(mr => new
+                {
+                    userId = mr.UserId,
+                    name = mr.User.FirstName + " " + mr.User.LastName,
+                    avatar = mr.User.AvatarUrl ?? "/images/default-avatar.png",
+                    readAt = mr.ReadAt
+                })
+                .ToListAsync();
+
+            // فرستنده هم خودش دیده (اضافه نکن اگه نمی‌خوای)
+            var viewCount = readers.Count + 1; // +1 برای فرستنده
+            var percentage = totalMembers > 0 ? Math.Round((double)viewCount / totalMembers * 100) : 0;
+
+            return Json(new
+            {
+                success = true,
+                messageId,
+                totalMembers,
+                viewCount,
+                percentage,
+                readers
+            });
+        }
 
     }
 

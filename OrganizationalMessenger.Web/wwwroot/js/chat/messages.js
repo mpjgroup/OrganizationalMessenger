@@ -379,27 +379,46 @@ export function displayMessage(msg) {
         statusHtml = `<div class="message-time">${sendTime} ${editedBadge}</div>`;
     }
 
+    // ✅ بخش Reply
     let replyHtml = '';
-    if (msg.replyToMessageId) {
+    if (msg.replyToMessageId && msg.replyToText) {
         replyHtml = `
-            <div class="message-reply" onclick="scrollToMessage(${msg.replyToMessageId})">
-                <i class="fas fa-reply"></i>
-                <div class="message-reply-content">
-                    <strong>${escapeHtml(msg.replyToSenderName || 'کاربر')}</strong>
-                    <p>${escapeHtml((msg.replyToText || 'پیام').substring(0, 50))}</p>
+            <div class="reply-preview" onclick="scrollToMessage(${msg.replyToMessageId})">
+                <div class="reply-bar"></div>
+                <div class="reply-content">
+                    <span class="reply-sender">${escapeHtml(msg.replyToSenderName || 'کاربر')}</span>
+                    <span class="reply-text">${escapeHtml(msg.replyToText.substring(0, 50))}${msg.replyToText.length > 50 ? '...' : ''}</span>
                 </div>
             </div>
         `;
     }
 
-    const messageMenuHtml = createMessageMenu(msg.id, isSent, sentAt);
+    // ✅ علامت فوروارد
+    let forwardHtml = '';
+    if (msg.forwardedFromMessageId || msg.forwardedFromUserId) {
+        const forwardedFrom = msg.forwardedFromUserName || 'کاربر';
+        forwardHtml = `
+            <div class="forwarded-badge">
+                <i class="fas fa-share"></i>
+                <span>ارجاع شده از: ${escapeHtml(forwardedFrom)}</span>
+            </div>
+        `;
+    }
+
     const reactionsHtml = createReactionsHtml(msg.reactions || [], msg.id);
+
+    const isForwarded = !!(msg.forwardedFromMessageId || msg.forwardedFromUserId);
+    const messageMenuHtml = createMessageMenu(msg.id, isSent, sentAt, isForwarded);
+
+
+
 
     messageEl.innerHTML = `
         <div class="message-wrapper">
             ${!isConsecutive ? avatarSectionHtml : ''}
             <div class="message-bubble">
                 <div class="message-content">
+                    ${forwardHtml}
                     ${replyHtml}
                     ${attachmentsHtml}
                     ${messageTextHtml}
@@ -416,10 +435,9 @@ export function displayMessage(msg) {
 
 
 
-
-function createMessageMenu(messageId, isSent, sentAt) {
+function createMessageMenu(messageId, isSent, sentAt, isForwarded = false) {
     if (isSent) {
-        const canEdit = canEditMessage(sentAt);
+        const canEdit = !isForwarded && canEditMessage(sentAt);
         const canDelete = canDeleteMessage(sentAt);
 
         return `
@@ -436,6 +454,9 @@ function createMessageMenu(messageId, isSent, sentAt) {
                     </button>
                     <button onclick="enterMultiSelectMode()">
                         <i class="fas fa-check-square"></i> ارجاع چندین پیام
+                    </button>
+                    <button onclick="showViewStats(${messageId})">
+                        <i class="fas fa-chart-bar"></i> آمار بازدید
                     </button>
                     ${canEdit ? `
                     <button onclick="editMessage(${messageId})">
@@ -464,6 +485,9 @@ function createMessageMenu(messageId, isSent, sentAt) {
                     <button onclick="enterMultiSelectMode()">
                         <i class="fas fa-check-square"></i> ارجاع چندین پیام
                     </button>
+                    <button onclick="showViewStats(${messageId})">
+                        <i class="fas fa-chart-bar"></i> آمار بازدید
+                    </button>
                     <button onclick="reportMessage(${messageId})" class="report-btn">
                         <i class="fas fa-flag"></i> گزارش
                     </button>
@@ -472,6 +496,7 @@ function createMessageMenu(messageId, isSent, sentAt) {
         `;
     }
 }
+
 
 function canEditMessage(sentAt) {
     if (!messageSettings.allowEdit) return false;
@@ -490,32 +515,24 @@ function canDeleteMessage(sentAt) {
 }
 
 export async function markMessagesAsRead() {
-    if (!currentChat?.id || currentChat.type !== 'private') {
-        console.log('⚠️ Cannot mark as read: no current chat or not private');
+    if (!currentChat?.id) {
+        console.log('⚠️ Cannot mark as read: no current chat');
         return;
     }
 
+    // ✅ همه پیام‌های دریافتی (received) در DOM
     const unreadReceivedMessages = Array.from(
         document.querySelectorAll('#messagesContainer .message.received[data-message-id]')
     );
 
-    console.log(`📖 Found ${unreadReceivedMessages.length} received messages in DOM`);
-
     const unreadReceivedIds = unreadReceivedMessages
-        .filter(el => {
-            const messageTime = el.querySelector('.message-time');
-            if (!messageTime) return false;
-
-            const hasTick = messageTime.querySelector('.tick');
-            return !hasTick;
-        })
         .map(el => parseInt(el.dataset.messageId))
         .filter(id => !isNaN(id));
 
-    console.log(`📖 Unread received message IDs: ${unreadReceivedIds.join(', ')}`);
+    console.log(`📖 Unread message IDs to mark: ${unreadReceivedIds.join(', ')}`);
 
     if (unreadReceivedIds.length === 0) {
-        console.log('✅ No unread messages to mark');
+        console.log('✅ No messages to mark');
         removeUnreadBadge();
         return;
     }
@@ -538,9 +555,9 @@ export async function markMessagesAsRead() {
         const result = await response.json();
         console.log(`✅ Server marked ${result.markedCount} messages as read`);
 
-        if (window.connection?.state === signalR.HubConnectionState.Connected) {
+        // ✅ فقط برای private از SignalR notify کن (تیک آبی)
+        if (currentChat.type === 'private' && window.connection?.state === signalR.HubConnectionState.Connected) {
             await window.connection.invoke("NotifyMessagesRead", unreadReceivedIds);
-            console.log('✅ SignalR notified about read messages');
         }
 
         removeUnreadBadge();
@@ -548,7 +565,6 @@ export async function markMessagesAsRead() {
         console.error('❌ Mark as read error:', error);
     }
 }
-
 function removeUnreadBadge() {
     if (!currentChat) return;
 

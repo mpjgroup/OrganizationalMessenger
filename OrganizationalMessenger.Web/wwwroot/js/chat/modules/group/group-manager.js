@@ -283,6 +283,9 @@ export class GroupManager {
     async showMembersDialog(groupId) {
         console.log('👥 Opening members dialog for group:', groupId);
 
+        const manageMembersBtn = document.getElementById('manageMembersBtn');
+        const isAdmin = manageMembersBtn?.dataset.isAdmin === 'true';
+
         try {
             const response = await fetch(`/api/Group/${groupId}/Members`);
             const result = await response.json();
@@ -300,17 +303,23 @@ export class GroupManager {
             dialog.innerHTML = `
                 <div class="members-dialog">
                     <div class="members-dialog-header">
-                        <h3><i class="fas fa-users"></i> اعضای گروه <span class="member-count-badge">${result.members.length} نفر</span></h3>
+                        <h3>
+                            <i class="fas fa-users"></i> 
+                            ${isAdmin ? 'مدیریت اعضای گروه' : 'اعضای گروه'} 
+                            <span class="member-count-badge">${result.members.length} نفر</span>
+                        </h3>
                         <button class="close-dialog" onclick="this.closest('.members-dialog-overlay').remove()">✕</button>
                     </div>
                     <div class="members-dialog-body">
+                        ${isAdmin ? `
                         <div class="members-actions">
                             <button class="btn-add-member" id="addMemberBtn">
                                 <i class="fas fa-user-plus"></i> افزودن عضو جدید
                             </button>
                         </div>
+                        ` : ''}
                         <div class="members-list" id="membersList">
-                            ${result.members.map(m => this.renderMemberItem(m, groupId)).join('')}
+                            ${result.members.map(m => this.renderMemberItem(m, groupId, isAdmin)).join('')}
                         </div>
                     </div>
                 </div>
@@ -323,14 +332,48 @@ export class GroupManager {
                 if (e.target === dialog) dialog.remove();
             });
 
-            document.getElementById('addMemberBtn').addEventListener('click', () => {
-                this.showAddMemberDialog(groupId);
-            });
+            // دکمه افزودن فقط برای ادمین
+            if (isAdmin) {
+                document.getElementById('addMemberBtn')?.addEventListener('click', () => {
+                    this.showAddMemberDialog(groupId);
+                });
+            }
 
         } catch (error) {
             console.error('❌ Error loading members:', error);
             alert('خطا در بارگذاری اعضا');
         }
+    }
+
+    renderMemberItem(member, groupId, isAdmin = false) {
+        const roleLabel = member.role === 'Owner' ? 'مالک'
+            : member.isAdmin ? 'ادمین'
+                : 'عضو';
+
+        const roleBadgeClass = member.role === 'Owner' ? 'role-owner'
+            : member.isAdmin ? 'role-admin'
+                : 'role-member';
+
+        // ✅ دکمه حذف فقط برای ادمین و فقط برای اعضای غیر Owner
+        const removeBtn = (isAdmin && member.role !== 'Owner')
+            ? `<button class="remove-member-btn" onclick="window.groupManager.removeMember(${groupId}, ${member.userId})" title="حذف عضو">
+                   <i class="fas fa-times"></i>
+               </button>`
+            : '';
+
+        return `
+            <div class="member-item" data-user-id="${member.userId}">
+                <img src="${member.avatar}" class="member-avatar" alt="${member.name}" />
+                <div class="member-info">
+                    <span class="member-name">${member.name}</span>
+                    <span class="member-role ${roleBadgeClass}">${roleLabel}</span>
+                </div>
+                <div class="member-status">
+                    ${member.isOnline ? '<span class="online-dot"></span>' : ''}
+                    ${removeBtn}
+                </div>
+            </div>
+        `;
     }
 
     // ✅ رندر هر آیتم عضو

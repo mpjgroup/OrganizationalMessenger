@@ -13,8 +13,25 @@ import { loadMessages } from './messages.js';
 export function handleReceiveMessage(data) {
     console.log('📨 ReceiveMessage:', data);
 
-    const isCurrentChat = currentChat &&
-        (currentChat.id == data.chatId || currentChat.id == data.senderId);
+    // ✅ تشخیص دقیق اینکه پیام مال چت فعلی هست یا نه
+    let isCurrentChat = false;
+
+    if (currentChat) {
+        if (currentChat.type === 'private') {
+            // چت خصوصی: فقط اگه فرستنده همون طرف مقابل باشه
+            isCurrentChat = currentChat.id == data.senderId &&
+                (!data.chatType || data.chatType === 'private') &&
+                !data.groupId && !data.channelId;
+        } else if (currentChat.type === 'group') {
+            // گروه: chatId باید برابر groupId باشه و chatType هم group
+            isCurrentChat = currentChat.id == data.chatId &&
+                (data.chatType === 'group');
+        } else if (currentChat.type === 'channel') {
+            // کانال: chatId باید برابر channelId باشه و chatType هم channel
+            isCurrentChat = currentChat.id == data.chatId &&
+                (data.chatType === 'channel');
+        }
+    }
 
     if (isCurrentChat) {
         if (!isPageFocused || document.hidden) {
@@ -31,23 +48,48 @@ export function handleReceiveMessage(data) {
         if (isPageFocused && !document.hidden) {
             setTimeout(() => {
                 markMessagesAsRead();
-                removeUnreadSeparator(); // ✅ حذف separator
+                removeUnreadSeparator();
             }, 100);
         } else {
             setTimeout(() => {
                 if (connection?.state === signalR.HubConnectionState.Connected) {
-                    connection.invoke("ConfirmDelivery", parseInt(data.id)); 
+                    connection.invoke("ConfirmDelivery", parseInt(data.id));
                 }
             }, 100);
         }
     } else {
+        updateUnreadBadge(data);
         loadChats();
         showNotification(data.senderName, data.content);
     }
 }
 
+
 export function handleMessageSent(data) {
     console.log('✅ MessageSent received:', data);
+
+    // ✅ چک کن پیام مربوط به چت فعلی هست
+    let isCurrentChat = false;
+
+    if (currentChat) {
+        if (currentChat.type === 'private') {
+            isCurrentChat = currentChat.id == data.chatId &&
+                (!data.chatType || data.chatType === 'private') &&
+                !data.groupId && !data.channelId;
+        } else if (currentChat.type === 'group') {
+            isCurrentChat = currentChat.id == data.chatId &&
+                (data.chatType === 'group');
+        } else if (currentChat.type === 'channel') {
+            isCurrentChat = currentChat.id == data.chatId &&
+                (data.chatType === 'channel');
+        }
+    }
+
+    if (!isCurrentChat) {
+        console.log('⚠️ MessageSent is not for current chat, skipping display');
+        loadChats(); // فقط لیست چت‌ها رو آپدیت کن
+        return;
+    }
 
     const tempMessages = document.querySelectorAll('.message[data-temp="true"]');
     tempMessages.forEach(msg => msg.remove());
@@ -59,6 +101,7 @@ export function handleMessageSent(data) {
     displayMessage(data);
     scrollToBottom();
 }
+
 export function updateMessageStatus(messageId, status, readAt = null) {
     console.log(`🔄 Updating message ${messageId} to ${status}`);
 
@@ -143,5 +186,29 @@ export function setupScrollListener() {
 function showNotification(title, body) {
     if (Notification.permission === 'granted') {
         new Notification(title, { body });
+    }
+}
+
+
+function updateUnreadBadge(data) {
+    // پیدا کردن chat item
+    const chatId = data.chatId || data.senderId;
+    const chatItem = document.querySelector(`.chat-item[data-chat-id="${chatId}"]`);
+    if (!chatItem) return;
+
+    let badge = chatItem.querySelector('.unread-badge');
+    if (badge) {
+        // افزایش شمارنده
+        const current = parseInt(badge.textContent) || 0;
+        badge.textContent = current + 1 > 99 ? '99+' : current + 1;
+    } else {
+        // ساخت badge جدید
+        const nameRow = chatItem.querySelector('.chat-name-row');
+        if (nameRow) {
+            badge = document.createElement('span');
+            badge.className = 'unread-badge';
+            badge.textContent = '1';
+            nameRow.appendChild(badge);
+        }
     }
 }

@@ -150,15 +150,19 @@ function safeUpdateChatHeader(chatType, chatId, chatName) {
     }
 
     // مدیریت اعضا
+    // مدیریت اعضا
     const manageMembersBtn = document.getElementById('manageMembersBtn');
     if (manageMembersBtn && (chatType === 'group' || chatType === 'channel')) {
         manageMembersBtn.style.display = 'flex';
         const hasPermission = chatData?.role === 'Owner' || chatData?.isAdmin;
-        manageMembersBtn.disabled = !hasPermission;
-        manageMembersBtn.title = hasPermission ? 'مدیریت اعضا' : 'فقط ادمین‌ها';
-        manageMembersBtn.style.opacity = hasPermission ? '1' : '0.5';
+
+        // ✅ همه میتونن ببینن (disabled نمیشه)
+        manageMembersBtn.disabled = false;
+        manageMembersBtn.title = hasPermission ? 'مدیریت اعضا' : 'مشاهده اعضا';
+        manageMembersBtn.style.opacity = '1';
         manageMembersBtn.dataset.chatId = chatId;
         manageMembersBtn.dataset.chatType = chatType;
+        manageMembersBtn.dataset.isAdmin = hasPermission ? 'true' : 'false';  // ✅ ذخیره مجوز
     } else if (manageMembersBtn) {
         manageMembersBtn.style.display = 'none';
     }

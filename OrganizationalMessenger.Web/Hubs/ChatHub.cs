@@ -150,6 +150,7 @@ namespace OrganizationalMessenger.Web.Hubs
                     isDelivered = false,
                     isRead = false,
                     isEdited = false,
+                    chatType = "private",   
                     replyToMessageId = message.ReplyToMessageId,
                     replyToText = message.ReplyToMessage?.Content,
                     replyToSenderName = message.ReplyToMessage != null
@@ -160,6 +161,24 @@ namespace OrganizationalMessenger.Web.Hubs
 
                 // ✅ ارسال به گیرنده
                 await Clients.User(receiverId.ToString()).SendAsync("ReceiveMessage", messageDto);
+
+                // ✅ ارسال به گیرنده (مثل SendPrivateMessage)
+                await Clients.User(receiverId.ToString()).SendAsync("ReceiveMessage", messageDto);
+
+                // ✅ چک آنلاین بودن گیرنده برای delivery
+                if (IsUserOnline(receiverId))
+                {
+                    message.IsDelivered = true;
+                    message.DeliveredAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+
+                    await Clients.All.SendAsync("MessageDelivered", new
+                    {
+                        messageId = message.Id,
+                        deliveredAt = message.DeliveredAt?.ToString("o")
+                    });
+                }
+
 
                 // ✅ تأیید به فرستنده
                 await Clients.Caller.SendAsync("MessageSent", messageDto);
@@ -341,6 +360,7 @@ namespace OrganizationalMessenger.Web.Hubs
                     sentAt = message.SentAt.ToString("o"),
                     isDelivered = false,
                     isRead = false,
+                    chatType = "private",
                     chatId = receiverId,
                     attachments = message.Attachments.Select(f => new
                     {
