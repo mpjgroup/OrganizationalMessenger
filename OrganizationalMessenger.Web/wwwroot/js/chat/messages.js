@@ -83,6 +83,22 @@ export async function loadMessageSettings() {
             editTimeLimit: 3600,
             deleteTimeLimit: 7200
         });
+
+
+
+        // ✅ لود تنظیمات فوروارد
+        try {
+            const fwdResponse = await fetch('/Chat/GetForwardSettings');
+            if (fwdResponse.ok) {
+                const fwdResult = await fwdResponse.json();
+                window.displayOriginalNameInForward = fwdResult.displayOriginalName ?? true;
+                console.log('✅ Forward settings loaded:', window.displayOriginalNameInForward);
+            }
+        } catch (e) {
+            window.displayOriginalNameInForward = true;
+        }
+
+
     }
 }
 
@@ -394,15 +410,25 @@ export function displayMessage(msg) {
     }
 
     // ✅ علامت فوروارد
+    // ✅ علامت فوروارد - با تنظیم
     let forwardHtml = '';
     if (msg.forwardedFromMessageId || msg.forwardedFromUserId) {
-        const forwardedFrom = msg.forwardedFromUserName || 'کاربر';
-        forwardHtml = `
-            <div class="forwarded-badge">
-                <i class="fas fa-share"></i>
-                <span>ارجاع شده از: ${escapeHtml(forwardedFrom)}</span>
-            </div>
-        `;
+        const showName = window.displayOriginalNameInForward !== false;
+        if (showName && msg.forwardedFromUserName) {
+            forwardHtml = `
+                <div class="forwarded-badge">
+                    <i class="fas fa-share"></i>
+                    <span>ارجاع شده از: ${escapeHtml(msg.forwardedFromUserName)}</span>
+                </div>
+            `;
+        } else {
+            forwardHtml = `
+                <div class="forwarded-badge">
+                    <i class="fas fa-share"></i>
+                    <span>ارجاع شده</span>
+                </div>
+            `;
+        }
     }
 
     const reactionsHtml = createReactionsHtml(msg.reactions || [], msg.id);

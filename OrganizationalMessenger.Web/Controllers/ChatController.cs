@@ -819,10 +819,19 @@ namespace OrganizationalMessenger.Web.Controllers
             var userId = GetCurrentUserId();
             if (userId == null) return Unauthorized();
 
+            // ✅ خواندن تنظیم نمایش نام صاحب اصلی
+            var displayOriginalNameStr = await _context.SystemSettings
+                .Where(s => s.Key == "DisplayOriginalNameInForward")
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync();
+            bool displayOriginalName = displayOriginalNameStr?.ToLower() == "true";
+
             try
             {
                 var messages = await _context.Messages
                     .Include(m => m.Attachments)
+                    .Include(m => m.Sender) // ✅ برای نام فرستنده
+                    .Include(m => m.ForwardedFromUser) // ✅ برای نام نویسنده اصلی
                     .Where(m => request.MessageIds.Contains(m.Id))
                     .ToListAsync();
 
@@ -830,6 +839,11 @@ namespace OrganizationalMessenger.Web.Controllers
 
                 foreach (var originalMessage in messages)
                 {
+                    // ✅ پیدا کردن نویسنده اصلی (زنجیره فوروارد)
+                    // اگر پیام قبلاً فوروارد شده، نویسنده اصلی همان ForwardedFromUserId قبلی است
+                    // اگر نه، نویسنده اصلی همان SenderId است
+                    var originalAuthorId = originalMessage.ForwardedFromUserId ?? originalMessage.SenderId;
+
                     var newMessage = new Message
                     {
                         SenderId = userId.Value,
@@ -840,8 +854,8 @@ namespace OrganizationalMessenger.Web.Controllers
                         SentAt = DateTime.Now,
                         IsDelivered = false,
                         IsEdited = false,
-                        ForwardedFromMessageId = originalMessage.Id,
-                        ForwardedFromUserId = originalMessage.SenderId,
+                        ForwardedFromMessageId = originalMessage.ForwardedFromMessageId ?? originalMessage.Id,
+                        ForwardedFromUserId = originalAuthorId, // ✅ همیشه نویسنده اصلی
                         Attachments = originalMessage.Attachments
                             .Where(a => !a.IsDeleted)
                             .Select(a => new FileAttachment
@@ -881,21 +895,41 @@ namespace OrganizationalMessenger.Web.Controllers
                     // ✅ اطلاع‌رسانی Real-time به گیرنده از طریق SignalR
                     try
                     {
+                        var sender = await _context.Users.FindAsync(userId.Value);
                         var receiver = await _context.Users.FindAsync(request.ReceiverId);
+
+                        // ✅ نام نویسنده اصلی
+                        string forwardedFromUserName = null;
+                        if (displayOriginalName)
+                        {
+                            var originalAuthor = await _context.Users.FindAsync(originalAuthorId);
+                            forwardedFromUserName = originalAuthor != null
+                                ? $"{originalAuthor.FirstName} {originalAuthor.LastName}"
+                                : null;
+                        }
+
                         if (receiver != null)
                         {
                             var messageDto = new
                             {
                                 id = newMessage.Id,
                                 senderId = newMessage.SenderId,
-                                senderName = $"{User.Identity.Name}",
-                                senderAvatar = "/images/default-avatar.png", // یا از دیتابیس بگیرید
+                                senderName = sender != null
+                                    ? $"{sender.FirstName} {sender.LastName}"
+                                    : "کاربر",
+                                senderAvatar = sender?.AvatarUrl ?? "/images/default-avatar.png",
                                 content = newMessage.Content,
                                 messageText = newMessage.MessageText,
                                 type = newMessage.Type,
                                 sentAt = newMessage.SentAt,
                                 isDelivered = false,
                                 isRead = false,
+                                chatType = "private",
+                                chatId = request.ReceiverId,
+                                // ✅ اطلاعات فوروارد
+                                forwardedFromMessageId = newMessage.ForwardedFromMessageId,
+                                forwardedFromUserId = newMessage.ForwardedFromUserId,
+                                forwardedFromUserName,
                                 attachments = newMessage.Attachments.Select(a => new
                                 {
                                     a.Id,
@@ -1219,6 +1253,25 @@ namespace OrganizationalMessenger.Web.Controllers
             {
                 return Json(new { success = false, message = ex.Message });
             }
+        }
+
+
+
+        // ✅ دریافت تنظیمات فوروارد
+        [HttpGet]
+        [Route("Chat/GetForwardSettings")]
+        public async Task<IActionResult> GetForwardSettings()
+        {
+            var displayOriginalNameStr = await _context.SystemSettings
+                .Where(s => s.Key == "DisplayOriginalNameInForward")
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync();
+
+            return Json(new
+            {
+                success = true,
+                displayOriginalName = displayOriginalNameStr?.ToLower() == "true"
+            });
         }
 
     }

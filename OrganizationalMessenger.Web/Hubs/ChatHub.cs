@@ -162,8 +162,6 @@ namespace OrganizationalMessenger.Web.Hubs
                 // ✅ ارسال به گیرنده
                 await Clients.User(receiverId.ToString()).SendAsync("ReceiveMessage", messageDto);
 
-                // ✅ ارسال به گیرنده (مثل SendPrivateMessage)
-                await Clients.User(receiverId.ToString()).SendAsync("ReceiveMessage", messageDto);
 
                 // ✅ چک آنلاین بودن گیرنده برای delivery
                 if (IsUserOnline(receiverId))

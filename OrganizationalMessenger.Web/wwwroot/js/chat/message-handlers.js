@@ -13,6 +13,12 @@ import { loadMessages } from './messages.js';
 export function handleReceiveMessage(data) {
     console.log('📨 ReceiveMessage:', data);
 
+    // ✅ محافظت از پیام تکراری
+    if (data.id && document.querySelector(`[data-message-id="${data.id}"]`)) {
+        console.log('⚠️ Duplicate message ignored:', data.id);
+        return;
+    }
+
     let isCurrentChat = false;
 
     if (currentChat) {
@@ -57,7 +63,7 @@ export function handleReceiveMessage(data) {
         updateUnreadBadge(data);
         loadChats(getActiveTab());
 
-        // ✅ نوتیف��کیشن - چک muted بودن
+        // ✅ نوتیفیکیشن - چک muted بودن
         const chatId = data.chatId || data.senderId;
         const chatType = data.chatType || 'private';
         const chatData = (window.chats || []).find(c =>
@@ -66,9 +72,17 @@ export function handleReceiveMessage(data) {
         const isMuted = chatData?.isMuted || false;
 
         if (!isMuted) {
-            // ✅ متن پیام رو از فیلدهای مختلف پیدا کن
+            // ✅ ساخت عنوان نوتیفیکیشن بر اساس نوع چت
+            let notifTitle = data.senderName || 'پیام جدید';
+
+            if (chatType === 'group' && chatData?.name) {
+                notifTitle = `${data.senderName || 'کاربر'} - ${chatData.name}`;
+            } else if (chatType === 'channel' && chatData?.name) {
+                notifTitle = `📢 ${chatData.name}`;
+            }
+
             const messageText = data.content || data.text || data.messageText || '';
-            showBrowserNotification(data.senderName, messageText, data);
+            showBrowserNotification(notifTitle, messageText, data);
         }
     }
 }
@@ -76,6 +90,13 @@ export function handleReceiveMessage(data) {
 
 export function handleMessageSent(data) {
     console.log('✅ MessageSent received:', data);
+
+    // ✅ محافظت از پیام تکراری
+    if (data.id && document.querySelector(`[data-message-id="${data.id}"]`)) {
+        console.log('⚠️ Duplicate sent message ignored:', data.id);
+        loadChats(getActiveTab());
+        return;
+    }
 
     let isCurrentChat = false;
 
@@ -214,13 +235,15 @@ export function requestNotificationPermission() {
         return;
     }
 
-    // اگر قبلاً پاپ‌آپ رو دیده (ولی هنوز default هست)
-    if (localStorage.getItem(NOTIF_PERMISSION_KEY) === 'asked') {
-        console.log('🔔 Permission popup already shown before');
+    // ✅ اصلاح شد: اگر قبلاً "بعداً" زده ولی هنوز مجوز نداده، دوباره نشون بده
+    // فقط اگر مجوز granted شده بود skip کن (بالا چک شده)
+    // localStorage فقط جلوی نمایش بیش از حد در یک سشن رو میگیره
+    if (sessionStorage.getItem('notif_asked_this_session') === 'true') {
+        console.log('🔔 Already asked this session');
         return;
     }
 
-    // ✅ با تأخیر 3 ثانیه نشون بده (تا صفحه کامل لود بشه)
+    // ✅ با تأخیر 3 ثانیه نشون بده
     setTimeout(() => {
         showNotificationPermissionDialog();
     }, 3000);
@@ -283,13 +306,12 @@ function showNotificationPermissionDialog() {
     // ✅ دکمه قبول
     document.getElementById('notifAcceptBtn').addEventListener('click', () => {
         overlay.remove();
-        localStorage.setItem(NOTIF_PERMISSION_KEY, 'asked');
+        sessionStorage.setItem('notif_asked_this_session', 'true');
 
-        // ✅ حالا درخواست واقعی مجوز بروزر
+        // ✅ درخواست واقعی مجوز بروزر
         Notification.requestPermission().then(permission => {
             console.log('🔔 Notification permission result:', permission);
             if (permission === 'granted') {
-                // نمایش یه نوتیف تستی
                 try {
                     new Notification('پیام‌رسان سازمانی', {
                         body: '✅ اعلان‌ها با موفقیت فعال شدند!',
@@ -308,14 +330,14 @@ function showNotificationPermissionDialog() {
     // ✅ دکمه بعداً
     document.getElementById('notifLaterBtn').addEventListener('click', () => {
         overlay.remove();
-        localStorage.setItem(NOTIF_PERMISSION_KEY, 'asked');
+        sessionStorage.setItem('notif_asked_this_session', 'true');
     });
 
     // بستن با کلیک روی overlay
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) {
             overlay.remove();
-            localStorage.setItem(NOTIF_PERMISSION_KEY, 'asked');
+            sessionStorage.setItem('notif_asked_this_session', 'true');
         }
     });
 }
@@ -338,16 +360,19 @@ function createNotification(title, body, data) {
     const notifTitle = title || 'پیام جدید';
     let notifBody = body || '';
 
-    // اگر پیام فایل/ویس بود و متن نداره
     if (!notifBody) {
         if (data?.hasAttachments || data?.attachments?.length > 0) {
-            notifBody = '📎 فایل ضمیمه';
+            const att = data.attachments?.[0];
+            const ft = att?.fileType?.toString?.() || '';
+            if (ft.includes('Image') || ft === '1') notifBody = '🖼️ تصویر';
+            else if (ft.includes('Audio') || ft === '2') notifBody = '🎵 پیام صوتی';
+            else if (ft.includes('Video') || ft === '3') notifBody = '🎬 ویدیو';
+            else notifBody = '📎 فایل ضمیمه';
         } else {
             notifBody = 'پیام جدید';
         }
     }
 
-    // محدود کردن طول
     if (notifBody.length > 100) {
         notifBody = notifBody.substring(0, 97) + '...';
     }
@@ -358,17 +383,14 @@ function createNotification(title, body, data) {
             icon: data?.senderAvatar || '/images/default-avatar.png',
             tag: `msg-${data?.id || Date.now()}`,
             renotify: true,
-            silent: false,
             requireInteraction: false
         });
 
-        // کلیک روی نوتیفیکیشن → فوکوس روی پنجره
         notification.onclick = () => {
             window.focus();
             notification.close();
         };
 
-        // بستن خودکار بعد از 6 ثانیه
         setTimeout(() => {
             try { notification.close(); } catch (e) { }
         }, 6000);
