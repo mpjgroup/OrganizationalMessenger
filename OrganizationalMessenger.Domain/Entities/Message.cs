@@ -48,7 +48,12 @@ namespace OrganizationalMessenger.Domain.Entities
 
 
 
-        
+        // ✅ نظرسنجی
+        public int? PollId { get; set; }
+        public Poll? Poll { get; set; }  // Navigation Property
+
+
+
 
         // ✅ Forward
         public int? ForwardedFromUserId { get; set; }  // فرستنده اصلی

@@ -404,25 +404,33 @@ function getOnlineStatusInfo(chat) {
     }
 }
 
-// ✅ فرمت زمان آخرین بازدید
+// ✅ فرمت زمان آخرین بازدید - با تاریخ شمسی و روز هفته
+// ✅ فرمت زمان آخرین بازدید - با روز هفته و ساعت دقیق
+// ✅ فرمت زمان آخرین بازدید - با تاریخ شمسی کامل
 function formatLastSeen(lastSeenStr) {
-    if (!lastSeenStr) return '';
+    if (!lastSeenStr) return 'آفلاین';
 
-    const now = new Date();
     const lastSeen = new Date(lastSeenStr);
-    const diffMs = now - lastSeen;
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffMinutes < 1) return 'لحظاتی پیش';
-    if (diffMinutes < 60) return `${diffMinutes} دقیقه پیش`;
-    if (diffHours < 24) return `${diffHours} ساعت پیش`;
-    if (diffDays < 7) return `${diffDays} روز پیش`;
+    // نام روز هفته
+    const persianDays = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه'];
+    const dayName = persianDays[lastSeen.getDay()];
 
-    // بیشتر از یک هفته → تاریخ
-    return lastSeen.toLocaleDateString('fa-IR');
+    // تاریخ شمسی
+    const persianDate = lastSeen.toLocaleDateString('fa-IR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+
+    // ساعت و دقیقه
+    const hours = lastSeen.getHours().toString().padStart(2, '0');
+    const minutes = lastSeen.getMinutes().toString().padStart(2, '0');
+
+    // مثال: دوشنبه 02/05/1404 23:10
+    return `${dayName} ${persianDate} ${hours}:${minutes}`;
 }
+
 export async function selectChat(chatEl) {
     console.log('🔄 Selecting chat:', chatEl.dataset.chatId);
 
@@ -491,7 +499,6 @@ function safeUpdateChatHeader(chatType, chatId, chatName) {
                 chatStatusEl.textContent = `آخرین بازدید: ${formatLastSeen(chatData.lastSeen)}`;
                 chatStatusEl.className = 'chat-status offline';
             } else {
-                // ✅ فیکس: حتی اگه lastSeen نباشه، بنویسه آفلاین
                 chatStatusEl.textContent = 'آفلاین';
                 chatStatusEl.className = 'chat-status offline';
             }

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OrganizationalMessenger.Domain.Entities;
+using OrganizationalMessenger.Domain.Enums;
 using OrganizationalMessenger.Infrastructure.Data;
 using System.Security.Claims;
 
@@ -18,6 +19,7 @@ namespace OrganizationalMessenger.Web.Controllers
         {
             _context = context;
         }
+
 
         [HttpPost("Create")]
         [ValidateAntiForgeryToken]
@@ -40,7 +42,7 @@ namespace OrganizationalMessenger.Web.Controllers
                 ChannelId = request.ChannelId,
                 AllowMultipleAnswers = request.AllowMultipleAnswers,
                 IsAnonymous = false,
-                IsActive = request.PollType != "closed", // بسته = غیرفعال تا سازنده فعال کنه
+                IsActive = request.PollType != "closed",
                 CreatedAt = DateTime.Now
             };
 
@@ -59,8 +61,28 @@ namespace OrganizationalMessenger.Web.Controllers
             }
             await _context.SaveChangesAsync();
 
-            return Ok(new { success = true, pollId = poll.Id });
+            // ✅ ایجاد پیام مرتبط با نظرسنجی - تا در لیست پیام‌ها نمایش داده بشه
+            var message = new Message
+            {
+                SenderId = userId.Value,
+                GroupId = request.GroupId,
+                ChannelId = request.ChannelId,
+                Content = $"📊 نظرسنجی: {poll.Question}",
+                MessageText = $"📊 نظرسنجی: {poll.Question}",
+                Type = MessageType.Poll,
+                SentAt = DateTime.UtcNow,
+                IsDelivered = false,
+                PollId = poll.Id  // ✅ ربط دادن به poll
+            };
+
+            _context.Messages.Add(message);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { success = true, pollId = poll.Id, messageId = message.Id });
         }
+
+
+
 
         [HttpPost("Vote")]
         [ValidateAntiForgeryToken]
