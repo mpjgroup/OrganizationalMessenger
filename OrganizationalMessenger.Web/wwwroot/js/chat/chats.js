@@ -469,7 +469,8 @@ function safeUpdateChatHeader(chatType, chatId, chatName) {
     const chatTitleEl = document.getElementById('chatTitle');
     if (chatTitleEl) chatTitleEl.textContent = chatName;
 
-    const chatData = chatsData.find(c => c.id === chatId);
+    // ✅ فیکس: هم id و هم type رو چک کن
+    const chatData = chatsData.find(c => c.id === chatId && c.type === chatType);
 
     const chatAvatarSmall = document.querySelector('.chat-avatar-small');
     if (chatAvatarSmall && chatData) {
@@ -490,11 +491,11 @@ function safeUpdateChatHeader(chatType, chatId, chatName) {
                 chatStatusEl.textContent = `آخرین بازدید: ${formatLastSeen(chatData.lastSeen)}`;
                 chatStatusEl.className = 'chat-status offline';
             } else {
-                chatStatusEl.textContent = '';
-                chatStatusEl.className = 'chat-status';
+                // ✅ فیکس: حتی اگه lastSeen نباشه، بنویسه آفلاین
+                chatStatusEl.textContent = 'آفلاین';
+                chatStatusEl.className = 'chat-status offline';
             }
         } else if (chatType === 'group' && chatData) {
-            // تعداد اعضای گروه
             const memberCount = chatData.memberCount || '';
             chatStatusEl.textContent = memberCount ? `${memberCount} عضو` : 'گروه';
             chatStatusEl.className = 'chat-status group-info';

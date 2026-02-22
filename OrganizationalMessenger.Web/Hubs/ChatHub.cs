@@ -939,7 +939,83 @@ namespace OrganizationalMessenger.Web.Hubs
 
 
 
+        // ✅ نوتیفیکیشن ایجاد نظرسنجی
+        public async Task NotifyPollCreated(int pollId, int chatId, string chatType)
+        {
+            var userId = GetUserId();
+            if (userId == 0) return;
 
+            try
+            {
+                _logger.LogInformation($"📊 NotifyPollCreated: pollId={pollId}, chatId={chatId}, chatType={chatType}");
+
+                if (chatType == "group")
+                {
+                    // ارسال به همه اعضای گروه
+                    var memberUserIds = await _context.UserGroups
+                        .Where(ug => ug.GroupId == chatId && ug.IsActive && ug.UserId != userId)
+                        .Select(ug => ug.UserId)
+                        .ToListAsync();
+
+                    foreach (var memberId in memberUserIds)
+                    {
+                        var connections = GetUserConnections(memberId);
+                        if (connections != null)
+                        {
+                            foreach (var conn in connections)
+                            {
+                                await Clients.Client(conn).SendAsync("PollCreated", new
+                                {
+                                    pollId,
+                                    chatId,
+                                    chatType,
+                                    creatorId = userId
+                                });
+                            }
+                        }
+                    }
+                }
+                else if (chatType == "channel")
+                {
+                    // ارسال به همه اعضای کانال
+                    var memberUserIds = await _context.UserChannels
+                        .Where(uc => uc.ChannelId == chatId && uc.IsActive && uc.UserId != userId)
+                        .Select(uc => uc.UserId)
+                        .ToListAsync();
+
+                    foreach (var memberId in memberUserIds)
+                    {
+                        var connections = GetUserConnections(memberId);
+                        if (connections != null)
+                        {
+                            foreach (var conn in connections)
+                            {
+                                await Clients.Client(conn).SendAsync("PollCreated", new
+                                {
+                                    pollId,
+                                    chatId,
+                                    chatType,
+                                    creatorId = userId
+                                });
+                            }
+                        }
+                    }
+                }
+
+                // نوتیف به خود فرستنده هم
+                await Clients.Caller.SendAsync("PollCreated", new
+                {
+                    pollId,
+                    chatId,
+                    chatType,
+                    creatorId = userId
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "NotifyPollCreated error");
+            }
+        }
 
 
 

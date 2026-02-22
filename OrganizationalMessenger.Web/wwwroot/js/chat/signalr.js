@@ -144,7 +144,17 @@ export async function setupSignalR() {
         //************* */
 
 
-
+        // ✅ دریافت نوتیفیکیشن نظرسنجی
+        connection.on("PollCreated", (data) => {
+            console.log('📊 PollCreated notification:', data);
+            // اگر کاربر در همون چت هست، پیام‌ها رو دوباره لود کن
+            if (currentChat?.id === data.chatId &&
+                currentChat?.type === data.chatType) {
+                import('./messages.js').then(module => {
+                    module.loadMessages(false);
+                });
+            }
+        });
 
 
 
