@@ -176,16 +176,46 @@ export async function setupSignalR() {
 
 function markUserOnline(userId) {
     document.querySelectorAll('.chat-item').forEach(item => {
-        if (parseInt(item.dataset.chatId) === userId) {
+        if (parseInt(item.dataset.chatId) === userId && item.dataset.chatType === 'private') {
             item.querySelector('.chat-avatar')?.classList.add('online');
+
+            // ✅ آپدیت متن به "آنلاین"
+            const lastSeenEl = item.querySelector('.last-seen-text');
+            if (lastSeenEl) {
+                lastSeenEl.className = 'last-seen-text online';
+                lastSeenEl.textContent = 'آنلاین';
+            }
+
+            // ✅ حذف clock indicator
+            const clock = item.querySelector('.clock-indicator');
+            if (clock) clock.remove();
+
+            // ✅ آپدیت chats data
+            const chatData = (window.chats || []).find(c => c.id == userId && c.type === 'private');
+            if (chatData) chatData.isOnline = true;
         }
     });
 }
 
 function markUserOffline(userId, lastSeen) {
     document.querySelectorAll('.chat-item').forEach(item => {
-        if (parseInt(item.dataset.chatId) === userId) {
+        if (parseInt(item.dataset.chatId) === userId && item.dataset.chatType === 'private') {
             item.querySelector('.chat-avatar')?.classList.remove('online');
+
+            // ✅ آپدیت lastSeen در chats data
+            const chatData = (window.chats || []).find(c => c.id == userId && c.type === 'private');
+            if (chatData) {
+                chatData.isOnline = false;
+                chatData.lastSeen = lastSeen || new Date().toISOString();
+            }
+
+            // ✅ آپدیت متن آخرین بازدید
+            const lastSeenEl = item.querySelector('.last-seen-text');
+            if (lastSeenEl) {
+                const lastSeenDate = lastSeen || new Date().toISOString();
+                lastSeenEl.className = 'last-seen-text offline';
+                lastSeenEl.textContent = 'لحظاتی پیش';
+            }
         }
     });
 }

@@ -298,20 +298,121 @@ export function renderChatItem(chat) {
         ? `<img src="${chat.avatar}" class="chat-avatar-img" alt="${escapeHtml(chat.name)}" />`
         : `<div class="chat-avatar-initials">${getInitials(chat.name)}</div>`;
 
+    // ✅ محاسبه وضعیت آنلاین و رنگ نشانگر
+    const statusInfo = getOnlineStatusInfo(chat);
+
+    // ✅ نشانگر ساعتی (فقط برای چت خصوصی)
+    let clockIndicatorHtml = '';
+    if (chat.type === 'private' && !chat.isOnline && chat.lastSeen) {
+        const hour = chat.lastSeenHour ?? new Date(chat.lastSeen).getHours();
+        const minute = chat.lastSeenMinute ?? new Date(chat.lastSeen).getMinutes();
+        // محاسبه زاویه عقربه ساعت (360/12=30 درجه هر ساعت + دقیقه)
+        const angle = ((hour % 12) * 30) + (minute * 0.5); // 0.5 درجه هر دقیقه
+        clockIndicatorHtml = `
+            <div class="clock-indicator" title="${statusInfo.tooltip}">
+                <div class="clock-dot" style="
+                    background: ${statusInfo.color};
+                    box-shadow: 0 0 4px ${statusInfo.color};
+                    transform: rotate(${angle}deg) translateY(-15px);
+                "></div>
+            </div>
+        `;
+    }
+
+    // ✅ متن آخرین بازدید
+    let lastSeenText = '';
+    if (chat.type === 'private') {
+        if (chat.isOnline) {
+            lastSeenText = '<span class="last-seen-text online">آنلاین</span>';
+        } else if (chat.lastSeen) {
+            lastSeenText = `<span class="last-seen-text offline">${formatLastSeen(chat.lastSeen)}</span>`;
+        }
+    }
+
     chatEl.innerHTML = `
-        <div class="chat-avatar ${chat.isOnline ? 'online' : ''}">
-            ${avatarHtml}
+        <div class="chat-avatar-wrapper">
+            <div class="chat-avatar ${chat.isOnline ? 'online' : ''}" style="${!chat.isOnline && statusInfo.color ? '--status-color:' + statusInfo.color : ''}">
+                ${avatarHtml}
+            </div>
+            ${clockIndicatorHtml}
         </div>
         <div class="chat-info">
             <div class="chat-name-row">
                 <span class="chat-name">${mutedIcon} ${escapeHtml(chat.name)}</span>
                 ${unreadBadge}
             </div>
+            ${lastSeenText}
         </div>
     `;
     container.appendChild(chatEl);
 }
 
+// ✅ محاسبه رنگ و وضعیت بر اساس زمان آخرین بازدید
+function getOnlineStatusInfo(chat) {
+    if (chat.type !== 'private') {
+        return { color: null, tooltip: '' };
+    }
+
+    if (chat.isOnline) {
+        return { color: '#00ff41', tooltip: 'آنلاین' }; // سبز فسفری
+    }
+
+    if (!chat.lastSeen) {
+        return { color: '#2c2c2c', tooltip: 'نامشخص' }; // تقریبا سیاه
+    }
+
+    const now = new Date();
+    const lastSeen = new Date(chat.lastSeen);
+    const diffMinutes = Math.floor((now - lastSeen) / (1000 * 60));
+
+    if (diffMinutes < 2) {
+        // تازه آفلاین شده → سبز کمرنگ
+        return { color: '#66bb6a', tooltip: 'لحظاتی پیش' };
+    } else if (diffMinutes < 5) {
+        return { color: '#81c784', tooltip: `${diffMinutes} دقیقه پیش` };
+    } else if (diffMinutes < 15) {
+        return { color: '#aed581', tooltip: `${diffMinutes} دقیقه پیش` };
+    } else if (diffMinutes < 30) {
+        // زرد-سبز
+        return { color: '#cddc39', tooltip: `${diffMinutes} دقیقه پیش` };
+    } else if (diffMinutes < 60) {
+        // زرد
+        return { color: '#fdd835', tooltip: `${diffMinutes} دقیقه پیش` };
+    } else if (diffMinutes < 120) {
+        // نارنجی-زرد
+        return { color: '#ffb300', tooltip: `${Math.floor(diffMinutes / 60)} ساعت پیش` };
+    } else if (diffMinutes < 360) {
+        // نارنجی
+        return { color: '#ff8f00', tooltip: `${Math.floor(diffMinutes / 60)} ساعت پیش` };
+    } else if (diffMinutes < 1440) {
+        // نارنجی-قرمز
+        return { color: '#e65100', tooltip: `${Math.floor(diffMinutes / 60)} ساعت پیش` };
+    } else {
+        // تیره/سیاه → خیلی وقته آفلاینه
+        const days = Math.floor(diffMinutes / 1440);
+        return { color: '#424242', tooltip: `${days} روز پیش` };
+    }
+}
+
+// ✅ فرمت زمان آخرین بازدید
+function formatLastSeen(lastSeenStr) {
+    if (!lastSeenStr) return '';
+
+    const now = new Date();
+    const lastSeen = new Date(lastSeenStr);
+    const diffMs = now - lastSeen;
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMinutes < 1) return 'لحظاتی پیش';
+    if (diffMinutes < 60) return `${diffMinutes} دقیقه پیش`;
+    if (diffHours < 24) return `${diffHours} ساعت پیش`;
+    if (diffDays < 7) return `${diffDays} روز پیش`;
+
+    // بیشتر از یک هفته → تاریخ
+    return lastSeen.toLocaleDateString('fa-IR');
+}
 export async function selectChat(chatEl) {
     console.log('🔄 Selecting chat:', chatEl.dataset.chatId);
 

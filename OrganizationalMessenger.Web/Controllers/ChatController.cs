@@ -353,6 +353,9 @@ namespace OrganizationalMessenger.Web.Controllers
                         name = fullName,
                         avatar = user.AvatarUrl ?? "/images/default-avatar.png",
                         isOnline = user.IsOnline,
+                        lastSeen = user.LastSeen?.ToString("o"),       // ✅ اضافه شد - ISO format
+                        lastSeenHour = user.LastSeen?.Hour,             // ✅ ساعت آخرین بازدید (0-23)
+                        lastSeenMinute = user.LastSeen?.Minute,         // ✅ دقیقه
                         lastMessage = lastMessage != null ? (lastMessage.MessageText ?? lastMessage.Content ?? "") : "",
                         lastMessageTime = lastMessage?.SentAt ?? user.LastSeen ?? user.CreatedAt,
                         lastMessageId = lastMessage?.Id ?? 0,

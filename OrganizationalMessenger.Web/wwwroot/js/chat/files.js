@@ -333,4 +333,23 @@ window.openImagePreview = function (url) {
     });
 };
 
+
+
+
+// ✅ Ctrl+V Paste Handler
+export function showPasteDialog(file) {
+    showCaptionDialog(file);
+}
+
+// ✅ Export to window for onclick handlers
+window.closeCaptionDialog = closeCaptionDialog;
+window.sendFileWithCaption = sendFileWithCaption;
+window.openImagePreview = function (url) {
+    import('./image-preview.js').then(module => {
+        module.openImagePreview(url);
+    });
+};
+
+console.log('✅ files.js loaded');
+
 console.log('✅ files.js loaded');

@@ -434,3 +434,102 @@
     color: #a0a0a0;
     margin-left: 4px;
 }
+
+
+
+
+/* ============================================
+   آواتار با ساعت + وضعیت آنلاین رنگی
+============================================ */
+
+/* ✅ Wrapper برای آواتار + ساعت */
+.chat-avatar-wrapper {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+}
+
+    .chat-avatar-wrapper .chat-avatar {
+        width: 100%;
+        height: 100%;
+    }
+
+/* ✅ ساعت مینیاتوری دور آواتار */
+.clock-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+/* ✅ نقطه رنگی روی موقعیت ساعت */
+.clock-dot {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    margin-top: -4px;
+    margin-left: -4px;
+    transform-origin: center center;
+    border: 1.5px solid #fff;
+    transition: all 0.3s ease;
+}
+
+/* ✅ وقتی آنلاینه - نقطه سبز فسفری (override) */
+.chat-avatar.online::after {
+    background: #00ff41 !important;
+    box-shadow: 0 0 6px #00ff41, 0 0 12px rgba(0, 255, 65, 0.3);
+    animation: pulseOnline 2s infinite;
+}
+
+@keyframes pulseOnline {
+    0%, 100% {
+        box-shadow: 0 0 6px #00ff41;
+    }
+
+    50% {
+        box-shadow: 0 0 12px #00ff41, 0 0 20px rgba(0, 255, 65, 0.4);
+    }
+}
+
+/* ✅ نقطه رنگی بر اساس وضعیت (وقتی آفلاینه) */
+.chat-avatar:not(.online)::after {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: var(--status-color, transparent);
+    border-radius: 50%;
+    bottom: 0;
+    right: 0;
+    border: 1.5px solid #fff;
+    box-shadow: 0 0 4px var(--status-color, transparent);
+}
+
+/* فقط وقتی --status-color ست شده نمایش بده */
+.chat-avatar:not(.online):not([style*="--status-color"])::after {
+    display: none;
+}
+
+/* ✅ متن آخرین بازدید */
+.last-seen-text {
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+    .last-seen-text.online {
+        color: #00c853;
+        font-weight: 500;
+    }
+
+    .last-seen-text.offline {
+        color: #8696a0;
+    }
