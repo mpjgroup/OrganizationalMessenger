@@ -482,7 +482,9 @@ namespace OrganizationalMessenger.Web.Hubs
 
             try
             {
-                await Clients.All.SendAsync("MessageReaction", new
+                // ✅ فقط به بقیه ارسال کن (نه به خود فرستنده)
+                // چون فرستنده خودش UI رو آپدیت کرده
+                await Clients.Others.SendAsync("MessageReaction", new
                 {
                     messageId,
                     emoji,

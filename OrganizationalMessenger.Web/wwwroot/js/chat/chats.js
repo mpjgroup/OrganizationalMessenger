@@ -415,6 +415,18 @@ export function handleTabClick(tabBtn) {
     loadChats(tab);
 }
 
+
+
+
+
+
 export function getChatsData() {
     return chatsData;
 }
+
+// ✅ تب فعلی رو برگردون
+export function getActiveTab() {
+    const activeTabBtn = document.querySelector('.tab-btn.active');
+    return activeTabBtn?.dataset.tab || 'all';
+}
+

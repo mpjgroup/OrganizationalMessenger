@@ -1,5 +1,5 @@
 ﻿// ============================================
-// Message Reactions
+// Message Reactions - Fixed
 // ============================================
 
 import { getCsrfToken } from './utils.js';
@@ -9,6 +9,9 @@ const popularEmojis = [
     '🌹', '👏', '🙏', '💯', '✅', '❌', '⭐', '💪',
     '🤝', '💡', '🚀', '🎯'
 ];
+
+// ✅ جلوگیری از کلیک‌های همزمان
+let isProcessing = false;
 
 export function showReactionPicker(messageId) {
     console.log('😊 Showing reaction picker for message:', messageId);
@@ -43,13 +46,11 @@ export function showReactionPicker(messageId) {
     document.body.appendChild(picker);
 
     const rect = addBtn.getBoundingClientRect();
-    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-
     let offsetX = isSent ? -20 : 20;
 
     picker.style.position = 'fixed';
     picker.style.left = (rect.left + (rect.width / 2) + offsetX) + 'px';
-    picker.style.top = (rect.top + scrollTop - 8) + 'px';
+    picker.style.top = (rect.top - 8) + 'px';
     picker.style.transform = 'translateX(-50%) translateY(-100%)';
 
     const chatMainRect = document.querySelector('.chat-main')?.getBoundingClientRect();
@@ -69,8 +70,8 @@ export function showReactionPicker(messageId) {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const emoji = btn.dataset.emoji;
-            addOrChangeReaction(messageId, emoji);
             picker.remove();
+            sendReaction(messageId, emoji);
         });
     });
 
@@ -85,9 +86,15 @@ export function showReactionPicker(messageId) {
     }, 100);
 }
 
+// ✅ یک تابع واحد برای ارسال reaction به سرور
+async function sendReaction(messageId, emoji) {
+    if (isProcessing) {
+        console.log('⏳ Reaction already processing, skipping...');
+        return;
+    }
+    isProcessing = true;
 
-export async function addOrChangeReaction(messageId, emoji) {
-    console.log('🎭 Add or change reaction:', messageId, emoji);
+    console.log('🎭 Sending reaction:', messageId, emoji);
 
     try {
         const response = await fetch('/Chat/ReactToMessage', {
@@ -106,34 +113,48 @@ export async function addOrChangeReaction(messageId, emoji) {
         console.log('📥 Reaction response:', result);
 
         if (result.success) {
-            // ✅ آپدیت فوری UI
+            // ✅ آپدیت فوری UI با نتیجه واقعی سرور
             updateReactionsUI(messageId, result.reactions);
 
+            // ✅ اطلاع‌رسانی به بقیه کاربران (Clients.Others)
             if (window.connection?.state === signalR.HubConnectionState.Connected) {
-                await window.connection.invoke(
-                    "NotifyMessageReaction",
-                    messageId,
-                    emoji,
-                    result.action,
-                    result.reactions
-                );
-                console.log('✅ SignalR notified about reaction');
+                try {
+                    await window.connection.invoke(
+                        "NotifyMessageReaction",
+                        messageId,
+                        emoji,
+                        result.action,
+                        result.reactions
+                    );
+                    console.log('✅ SignalR notified');
+                } catch (signalrErr) {
+                    console.warn('⚠️ SignalR notify failed:', signalrErr);
+                }
             }
         } else {
             console.error('❌ Reaction failed:', result.message);
         }
     } catch (error) {
-        console.error('❌ Add or change reaction error:', error);
+        console.error('❌ Reaction error:', error);
+    } finally {
+        isProcessing = false;
     }
 }
 
+// ✅ کلیک روی reaction موجود (toggle)
 export async function toggleReaction(messageId, emoji) {
     console.log('🔄 Toggle reaction:', messageId, emoji);
-    // ✅ ساده شد - مستقیم صدا بزن، سرور تصمیم میگیره
-    await addOrChangeReaction(messageId, emoji);
+    await sendReaction(messageId, emoji);
 }
 
-function updateReactionsUI(messageId, reactions) {
+// ✅ از picker انتخاب شده
+export async function addOrChangeReaction(messageId, emoji) {
+    console.log('🎭 Add/change reaction:', messageId, emoji);
+    await sendReaction(messageId, emoji);
+}
+
+// ✅ آپدیت UI ری‌اکشن‌ها
+export function updateReactionsUI(messageId, reactions) {
     const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
     if (!messageEl) return;
 
@@ -166,21 +187,21 @@ function renderReactions(messageId, reactions, container) {
         <div class="reaction-item ${r.hasReacted ? 'my-reaction' : ''}" 
              data-emoji="${r.emoji}"
              onclick="window.toggleReaction(${messageId}, '${r.emoji}')"
-             title="${r.users.map(u => u.name).join(', ')}">
+             title="${r.users ? r.users.map(u => u.name).join(', ') : ''}">
             <span class="reaction-emoji">${r.emoji}</span>
             <span class="reaction-count">${r.count}</span>
         </div>
     `).join('');
 
     container.innerHTML = `
-    ${reactionsItems}
-    <button class="reaction-add-btn" onclick="window.showReactionPicker(${messageId})" title="واکنش اضافه کن">
-        <i class="far fa-smile"></i>
-    </button>
-`;
+        ${reactionsItems}
+        <button class="reaction-add-btn" onclick="window.showReactionPicker(${messageId})" title="واکنش اضافه کن">
+            <i class="far fa-smile"></i>
+        </button>
+    `;
 }
 
-// ✅ SignalR handler برای reaction از کاربران دیگر
+// ✅ SignalR handler - فقط برای پیام‌هایی که از بقیه کاربران میاد
 export function handleMessageReaction(data) {
     console.log('📥 SignalR MessageReaction:', data);
     if (data.reactions) {
@@ -188,6 +209,7 @@ export function handleMessageReaction(data) {
     }
 }
 
+// ✅ Global functions
 window.showReactionPicker = showReactionPicker;
 window.toggleReaction = toggleReaction;
 window.addOrChangeReaction = addOrChangeReaction;

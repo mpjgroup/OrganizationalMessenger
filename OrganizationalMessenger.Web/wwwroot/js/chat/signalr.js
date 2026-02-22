@@ -123,53 +123,24 @@ export async function setupSignalR() {
 
 
         //************* */
+        // ✅ Reaction handler - ساده و درست
         connection.on("MessageReaction", (data) => {
-            console.log('🎭 MessageReaction received:', data);
+            console.log('🎭 MessageReaction from SignalR:', data);
 
             const messageEl = document.querySelector(`[data-message-id="${data.messageId}"]`);
             if (!messageEl) {
-                console.log('⚠️ Message element not found');
+                console.log('⚠️ Message not found in DOM');
                 return;
             }
 
-            // ✅ به‌روزرسانی UI با داده‌های جدید
-            const reactionsContainer = messageEl.querySelector('.message-reactions');
-            if (reactionsContainer) {
-                // استفاده از تابع از reactions.js
-                import('./reactions.js').then(module => {
-                    const container = messageEl.querySelector('.message-reactions');
-                    if (container) {
-                        // Re-render reactions
-                        if (!data.reactions || data.reactions.length === 0) {
-                            container.innerHTML = `
-                        <button class="reaction-add-btn" onclick="window.showReactionPicker(${data.messageId})">
-                            <i class="far fa-smile"></i>
-                        </button>
-                    `;
-                        } else {
-                            const reactionsItems = data.reactions.map(r => `
-                        <div class="reaction-item ${r.hasReacted ? 'my-reaction' : ''}" 
-                             data-emoji="${r.emoji}"
-                             onclick="window.toggleReaction(${data.messageId}, '${r.emoji}')"
-                             title="${r.users.map(u => u.name).join(', ')}">
-                            <span class="reaction-emoji">${r.emoji}</span>
-                            <span class="reaction-count">${r.count}</span>
-                        </div>
-                    `).join('');
-
-                            container.innerHTML = `
-                        ${reactionsItems}
-                        <button class="reaction-add-btn" onclick="window.showReactionPicker(${data.messageId})">
-                            <i class="far fa-smile"></i>
-                        </button>
-                    `;
-                        }
-                    }
-                });
-            }
-
-            console.log('✅ Reactions updated for message:', data.messageId);
-        }); // ⬅️ این پرانتز و سمی‌کالن اضافه شد
+            // ✅ مستقیم از reactions.js استفاده کن
+            import('./reactions.js').then(module => {
+                module.updateReactionsUI(data.messageId, data.reactions);
+                console.log('✅ Reactions updated via SignalR');
+            }).catch(err => {
+                console.error('❌ Failed to load reactions module:', err);
+            });
+        });
         //************* */
 
 

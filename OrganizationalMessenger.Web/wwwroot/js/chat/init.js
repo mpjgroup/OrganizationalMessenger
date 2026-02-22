@@ -117,6 +117,7 @@ async function setupEventListeners() {
     });
 
     setupVoiceRecording();
+    setupChatSearch(); // ✅ اضافه شد
     await setupHeaderEventListeners();
 
     console.log('✅ Event listeners attached');
@@ -204,4 +205,127 @@ export function toggleMessageInput(show) {
     if (inputArea) {
         inputArea.style.display = show ? 'flex' : 'none';
     }
+}
+
+
+function setupChatSearch() {
+    const searchInput = document.getElementById('searchInput');
+    if (!searchInput) return;
+
+    let searchTimeout;
+
+    // ✅ فوکوس: بزرگ شدن کادر جستجو
+    searchInput.addEventListener('focus', () => {
+        const headerRight = document.querySelector('.header-right');
+        if (headerRight) {
+            headerRight.classList.add('search-expanded');
+        }
+        searchInput.parentElement?.classList.add('search-box-expanded');
+    });
+
+    // ✅ از دست دادن فوکوس: برگشت به حالت عادی (فقط اگر خالیه)
+    searchInput.addEventListener('blur', () => {
+        // با تأخیر کوتاه تا اگر روی نتیجه کلیک شد، مشکلی نباشه
+        setTimeout(() => {
+            if (!searchInput.value.trim()) {
+                const headerRight = document.querySelector('.header-right');
+                if (headerRight) {
+                    headerRight.classList.remove('search-expanded');
+                }
+                searchInput.parentElement?.classList.remove('search-box-expanded');
+            }
+        }, 200);
+    });
+
+    // ✅ جستجو با debounce
+    searchInput.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        const query = e.target.value.trim().toLowerCase();
+
+        searchTimeout = setTimeout(() => {
+            filterChatList(query);
+        }, 200);
+    });
+
+    // ✅ ESC: خالی کردن و بستن
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            searchInput.value = '';
+            searchInput.blur();
+            filterChatList('');
+
+            const headerRight = document.querySelector('.header-right');
+            if (headerRight) {
+                headerRight.classList.remove('search-expanded');
+            }
+            searchInput.parentElement?.classList.remove('search-box-expanded');
+        }
+    });
+
+    console.log('✅ Chat search initialized');
+}
+function filterChatList(query) {
+    const { getChatsData } = window._chatModule || {};
+
+    // اگر query خالیه، لیست اصلی رو نشون بده
+    if (!query) {
+        import('./chats.js').then(module => module.loadChats('all'));
+        return;
+    }
+
+    const chatsData = window.chats || [];
+    if (chatsData.length === 0) return;
+
+    // ✅ فیلتر بر اساس نام
+    const filtered = chatsData.filter(chat => {
+        const name = (chat.name || '').toLowerCase();
+        return name.includes(query);
+    });
+
+    // ✅ رندر نتایج
+    const container = document.getElementById('chatList');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div class="search-no-result">
+                <i class="fas fa-search"></i>
+                <p>نتیجه‌ای یافت نشد</p>
+            </div>
+        `;
+        return;
+    }
+
+    // دسته‌بندی نتایج
+    const privateResults = filtered.filter(c => c.type === 'private');
+    const groupResults = filtered.filter(c => c.type === 'group');
+    const channelResults = filtered.filter(c => c.type === 'channel');
+
+    import('./chats.js').then(module => {
+        if (privateResults.length > 0) {
+            renderSearchSection(container, 'افراد', 'fa-user');
+            privateResults.forEach(chat => module.renderChatItem(chat));
+        }
+        if (groupResults.length > 0) {
+            renderSearchSection(container, 'گروه‌ها', 'fa-users');
+            groupResults.forEach(chat => module.renderChatItem(chat));
+        }
+        if (channelResults.length > 0) {
+            renderSearchSection(container, 'کانال‌ها', 'fa-bullhorn');
+            channelResults.forEach(chat => module.renderChatItem(chat));
+        }
+    });
+}
+
+function renderSearchSection(container, title, icon) {
+    const header = document.createElement('div');
+    header.className = 'chat-section-header';
+    header.innerHTML = `
+        <div class="section-line"></div>
+        <span class="section-title"><i class="fas ${icon}"></i> ${title}</span>
+        <div class="section-line"></div>
+    `;
+    container.appendChild(header);
 }

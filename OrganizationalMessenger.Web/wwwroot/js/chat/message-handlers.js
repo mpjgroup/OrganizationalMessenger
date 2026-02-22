@@ -4,7 +4,7 @@
 
 import { currentChat, connection, isPageFocused } from './variables.js';
 import { displayMessage, addUnreadSeparator, markMessagesAsRead, removeUnreadSeparator } from './messages.js';
-import { loadChats } from './chats.js';
+import { loadChats, getActiveTab } from './chats.js';
 import { formatPersianTime, scrollToBottom } from './utils.js';
 import { hasMoreMessages, isLoadingMessages } from './variables.js';
 import { loadMessages } from './messages.js';
@@ -59,7 +59,7 @@ export function handleReceiveMessage(data) {
         }
     } else {
         updateUnreadBadge(data);
-        loadChats();
+        loadChats(getActiveTab());
         showNotification(data.senderName, data.content);
     }
 }
@@ -86,7 +86,7 @@ export function handleMessageSent(data) {
 
     if (!isCurrentChat) {
         console.log('⚠️ MessageSent is not for current chat, skipping display');
-        loadChats();
+        loadChats(getActiveTab());
         return;
     }
 
@@ -101,7 +101,7 @@ export function handleMessageSent(data) {
     scrollToBottom();
 
     // ✅ ریلود لیست چت (برای اضافه شدن مخاطب جدید به لیست افراد)
-    loadChats();
+    loadChats(getActiveTab());
 }
 export function updateMessageStatus(messageId, status, readAt = null) {
     console.log(`🔄 Updating message ${messageId} to ${status}`);
