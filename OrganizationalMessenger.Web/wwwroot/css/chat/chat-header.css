@@ -178,12 +178,16 @@
     border-radius: 50%;
 }
 
+
 .chat-title-container {
+    flex: 1;
     display: flex;
     align-items: center;
-    flex: 1;
-    min-width: 0;
+    gap: 12px;
+    margin: 0 16px;
+    min-width: 0; /* برای ellipsis */
 }
+
 
 .chat-avatar-small.online::after {
     content: '';
@@ -197,3 +201,26 @@
     border-radius: 50%;
     box-shadow: 0 0 0 2px #fff;
 }
+
+
+/* ✅ وضعیت آنلاین/آخرین بازدید در هدر */
+.chat-status {
+    font-size: 12px;
+    margin-top: 2px;
+    transition: all 0.3s ease;
+}
+
+    .chat-status.online {
+        color: #00c853;
+        font-weight: 500;
+    }
+
+    .chat-status.offline {
+        color: #8696a0;
+    }
+
+    .chat-status.group-info,
+    .chat-status.channel-info {
+        color: #667781;
+        font-size: 11px;
+    }

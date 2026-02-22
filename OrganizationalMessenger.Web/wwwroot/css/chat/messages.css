@@ -93,7 +93,7 @@
 
 .message.sent .message-bubble {
     background: linear-gradient(145deg, #e3f2fd, #bbdefb);
-    border-radius: 18px 1px 18px 18px;
+    border-radius: 8px 1px 8px 8px;
     min-width: 200px;
     padding-right: 8px;
     padding-left: 8px;
@@ -102,10 +102,11 @@
 
 .message.received .message-bubble {
     background: linear-gradient(145deg, #f8f9ff, #f0f2f5);
-    border-radius: 1px 18px 18px 18px;
+    border-radius: 1px 8px 8px 8px;
     padding-right: 8px;
     padding-left: 8px;
     margin-left: 20px;
+    min-width: 200px;
 }
 
 .message.received.consecutive .message-bubble {

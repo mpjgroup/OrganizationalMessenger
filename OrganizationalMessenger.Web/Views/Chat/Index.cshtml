@@ -127,7 +127,22 @@
                 </button>
 
                 <button id="emojiBtn" class="input-btn" title="ایموجی">😀</button>
-
+                <!-- ✅ منوی اضافی کنار دکمه ارسال -->
+                <div class="send-extras">
+                    <button id="sendExtrasBtn" class="input-btn" title="گزینه‌های بیشتر">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <div class="send-extras-menu" id="sendExtrasMenu" style="display: none;">
+                        <button id="createPollBtn" class="send-extras-item">
+                            <i class="fas fa-poll"></i>
+                            <span>نظرسنجی</span>
+                        </button>
+                        <button id="sendLocationBtn" class="send-extras-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>موقعیت مکانی</span>
+                        </button>
+                    </div>
+                </div>
                 <button id="sendBtn" class="input-btn send-btn" title="ارسال">
                     <i class="fas fa-paper-plane"></i>
                 </button>

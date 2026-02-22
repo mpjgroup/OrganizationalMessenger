@@ -479,6 +479,36 @@ function safeUpdateChatHeader(chatType, chatId, chatName) {
         chatAvatarSmall.classList.toggle('online', !!chatData.isOnline);
     }
 
+    // ✅ آپدیت وضعیت آنلاین/آخرین بازدید در هدر
+    const chatStatusEl = document.getElementById('chatStatus');
+    if (chatStatusEl) {
+        if (chatType === 'private' && chatData) {
+            if (chatData.isOnline) {
+                chatStatusEl.textContent = 'آنلاین';
+                chatStatusEl.className = 'chat-status online';
+            } else if (chatData.lastSeen) {
+                chatStatusEl.textContent = `آخرین بازدید: ${formatLastSeen(chatData.lastSeen)}`;
+                chatStatusEl.className = 'chat-status offline';
+            } else {
+                chatStatusEl.textContent = '';
+                chatStatusEl.className = 'chat-status';
+            }
+        } else if (chatType === 'group' && chatData) {
+            // تعداد اعضای گروه
+            const memberCount = chatData.memberCount || '';
+            chatStatusEl.textContent = memberCount ? `${memberCount} عضو` : 'گروه';
+            chatStatusEl.className = 'chat-status group-info';
+        } else if (chatType === 'channel' && chatData) {
+            const memberCount = chatData.memberCount || '';
+            chatStatusEl.textContent = memberCount ? `${memberCount} عضو` : 'کانال';
+            chatStatusEl.className = 'chat-status channel-info';
+        } else {
+            chatStatusEl.textContent = '';
+            chatStatusEl.className = 'chat-status';
+        }
+    }
+
+    // ... بقیه کد (تماس، مدیریت اعضا، Mute) بدون تغییر ...
     const callVoiceBtn = document.getElementById('callVoiceBtn');
     const callVideoBtn = document.getElementById('callVideoBtn');
     if (callVoiceBtn && callVideoBtn) {
@@ -501,8 +531,6 @@ function safeUpdateChatHeader(chatType, chatId, chatName) {
         manageMembersBtn.style.display = 'none';
     }
 
-
-
     // ✅ دکمه Mute/Unmute
     const muteBtn = document.getElementById('moreBtn');
     if (muteBtn && (chatType === 'group' || chatType === 'channel')) {
@@ -513,7 +541,6 @@ function safeUpdateChatHeader(chatType, chatId, chatName) {
             : '<i class="fas fa-bell-slash" title="بی‌صدا کردن"></i>';
         muteBtn.title = isMuted ? 'صدادار کردن' : 'بی‌صدا کردن';
 
-        // حذف listener قبلی
         const newMuteBtn = muteBtn.cloneNode(true);
         muteBtn.parentNode.replaceChild(newMuteBtn, muteBtn);
 
@@ -524,10 +551,7 @@ function safeUpdateChatHeader(chatType, chatId, chatName) {
     } else if (muteBtn && chatType === 'private') {
         muteBtn.style.display = 'none';
     }
-
-
 }
-
 function safeSetupMoreButton(chatType, chatId) {
     const moreBtn = document.getElementById('moreBtn');
     if (!moreBtn) return;

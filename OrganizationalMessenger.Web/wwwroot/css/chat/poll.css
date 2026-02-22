@@ -1,0 +1,399 @@
+﻿/* ============================================
+   Poll - نظرسنجی
+============================================ */
+
+/* منوی سه‌نقطه ارسال */
+.send-extras {
+    position: relative;
+}
+
+.send-extras-menu {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    padding: 8px 0;
+    min-width: 180px;
+    z-index: 100;
+    margin-bottom: 8px;
+}
+
+.send-extras-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: #111b21;
+    direction: rtl;
+    transition: background 0.2s;
+}
+
+    .send-extras-item:hover {
+        background: #f0f2f5;
+    }
+
+    .send-extras-item i {
+        width: 20px;
+        text-align: center;
+        color: #00a884;
+    }
+
+/* دیالوگ نظرسنجی */
+.poll-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.poll-dialog {
+    background: #fff;
+    border-radius: 16px;
+    width: 480px;
+    max-width: 95vw;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    direction: rtl;
+}
+
+.poll-dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e9e9e9;
+}
+
+    .poll-dialog-header h3 {
+        margin: 0;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #111b21;
+    }
+
+.poll-dialog-body {
+    padding: 16px 20px;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.poll-dialog-footer {
+    display: flex;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 12px 20px;
+    border-top: 1px solid #e9e9e9;
+}
+
+/* نوع نظرسنجی */
+.poll-type-label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: block;
+    font-size: 14px;
+}
+
+.poll-type-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.poll-type-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+    .poll-type-option:has(input:checked) {
+        border-color: #00a884;
+        background: #f0faf7;
+    }
+
+    .poll-type-option input[type="radio"] {
+        margin-top: 4px;
+        accent-color: #00a884;
+    }
+
+.poll-type-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+    .poll-type-info strong {
+        font-size: 13px;
+        color: #111b21;
+    }
+
+    .poll-type-info span {
+        font-size: 11px;
+        color: #8696a0;
+    }
+
+/* چک‌باکس */
+.poll-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+    .poll-checkbox-label input {
+        accent-color: #00a884;
+    }
+
+/* سوال */
+.poll-question-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d7db;
+    border-radius: 8px;
+    font-size: 14px;
+    resize: vertical;
+    box-sizing: border-box;
+    direction: rtl;
+}
+
+    .poll-question-input:focus {
+        border-color: #00a884;
+        outline: none;
+    }
+
+/* گزینه‌ها */
+.poll-option-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.poll-option-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #d1d7db;
+    border-radius: 8px;
+    font-size: 13px;
+    direction: rtl;
+}
+
+    .poll-option-input:focus {
+        border-color: #00a884;
+        outline: none;
+    }
+
+.poll-remove-option {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: #fee;
+    border-radius: 50%;
+    cursor: pointer;
+    color: #e53935;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+    .poll-remove-option:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .poll-remove-option:not(:disabled):hover {
+        background: #e53935;
+        color: #fff;
+    }
+
+.poll-add-option-btn {
+    padding: 8px 16px;
+    border: 1px dashed #00a884;
+    background: #f0faf7;
+    border-radius: 8px;
+    color: #00a884;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+    .poll-add-option-btn:hover {
+        background: #e0f5ee;
+    }
+
+/* نظرسنجی در پیام */
+.poll-message {
+    background: #f0f2f5;
+    border-radius: 12px;
+    padding: 14px;
+    max-width: 400px;
+    direction: rtl;
+}
+
+.poll-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+    .poll-header i {
+        color: #00a884;
+        margin-top: 2px;
+    }
+
+.poll-question {
+    font-weight: 600;
+    font-size: 14px;
+    color: #111b21;
+    flex: 1;
+}
+
+.poll-closed-badge {
+    background: #e53935;
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.poll-options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.poll-vote-btn {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #d1d7db;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    text-align: right;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+    .poll-vote-btn:hover {
+        border-color: #00a884;
+        background: #f0faf7;
+    }
+
+.poll-result-option {
+    position: relative;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    overflow: hidden;
+    border: 1px solid #e0e0e0;
+    transition: all 0.2s;
+}
+
+    .poll-result-option.selected {
+        border-color: #00a884;
+    }
+
+.poll-result-bar {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 168, 132, 0.1);
+    transition: width 0.5s ease;
+    border-radius: 8px;
+}
+
+.poll-result-content {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 1;
+}
+
+.poll-option-text {
+    font-size: 13px;
+}
+
+.poll-option-percent {
+    font-size: 12px;
+    font-weight: 600;
+    color: #00a884;
+}
+
+.poll-check {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #00a884;
+    font-size: 12px;
+    z-index: 1;
+}
+
+.poll-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.poll-total-votes {
+    font-size: 12px;
+    color: #8696a0;
+}
+
+.poll-multi-badge {
+    font-size: 10px;
+    background: #e3f2fd;
+    color: #1565c0;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* Loading موقعیت مکانی */
+.location-loading {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}

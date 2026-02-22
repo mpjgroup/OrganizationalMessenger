@@ -179,22 +179,31 @@ function markUserOnline(userId) {
         if (parseInt(item.dataset.chatId) === userId && item.dataset.chatType === 'private') {
             item.querySelector('.chat-avatar')?.classList.add('online');
 
-            // ✅ آپدیت متن به "آنلاین"
             const lastSeenEl = item.querySelector('.last-seen-text');
             if (lastSeenEl) {
                 lastSeenEl.className = 'last-seen-text online';
                 lastSeenEl.textContent = 'آنلاین';
             }
 
-            // ✅ حذف clock indicator
             const clock = item.querySelector('.clock-indicator');
             if (clock) clock.remove();
 
-            // ✅ آپدیت chats data
             const chatData = (window.chats || []).find(c => c.id == userId && c.type === 'private');
             if (chatData) chatData.isOnline = true;
         }
     });
+
+    // ✅ اگه این کاربر الان توی هدر فعاله، وضعیتش رو آپدیت کن
+    if (currentChat?.id == userId && currentChat?.type === 'private') {
+        const chatStatusEl = document.getElementById('chatStatus');
+        if (chatStatusEl) {
+            chatStatusEl.textContent = 'آنلاین';
+            chatStatusEl.className = 'chat-status online';
+        }
+        // ✅ آواتار هدر هم آنلاین بشه
+        const chatAvatarSmall = document.querySelector('.chat-avatar-small');
+        if (chatAvatarSmall) chatAvatarSmall.classList.add('online');
+    }
 }
 
 function markUserOffline(userId, lastSeen) {
@@ -202,24 +211,31 @@ function markUserOffline(userId, lastSeen) {
         if (parseInt(item.dataset.chatId) === userId && item.dataset.chatType === 'private') {
             item.querySelector('.chat-avatar')?.classList.remove('online');
 
-            // ✅ آپدیت lastSeen در chats data
             const chatData = (window.chats || []).find(c => c.id == userId && c.type === 'private');
             if (chatData) {
                 chatData.isOnline = false;
                 chatData.lastSeen = lastSeen || new Date().toISOString();
             }
 
-            // ✅ آپدیت متن آخرین بازدید
             const lastSeenEl = item.querySelector('.last-seen-text');
             if (lastSeenEl) {
-                const lastSeenDate = lastSeen || new Date().toISOString();
                 lastSeenEl.className = 'last-seen-text offline';
                 lastSeenEl.textContent = 'لحظاتی پیش';
             }
         }
     });
-}
 
+    // ✅ اگه این کاربر الان توی هدر فعاله، وضعیتش رو آپدیت کن
+    if (currentChat?.id == userId && currentChat?.type === 'private') {
+        const chatStatusEl = document.getElementById('chatStatus');
+        if (chatStatusEl) {
+            chatStatusEl.textContent = 'آخرین بازدید: لحظاتی پیش';
+            chatStatusEl.className = 'chat-status offline';
+        }
+        const chatAvatarSmall = document.querySelector('.chat-avatar-small');
+        if (chatAvatarSmall) chatAvatarSmall.classList.remove('online');
+    }
+}
 function showTypingIndicator(message) {
     const typingEl = document.getElementById('typingIndicator');
     if (typingEl && currentChat?.type === 'private') {

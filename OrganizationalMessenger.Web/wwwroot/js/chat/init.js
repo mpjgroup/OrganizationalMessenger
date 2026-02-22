@@ -124,6 +124,40 @@ async function setupEventListeners() {
     setupPasteHandler(); // ✅ اضافه شد
     await setupHeaderEventListeners();
 
+
+
+    // ✅ منوی سه‌نقطه ارسال (نظرسنجی و لوکیشن)
+    const sendExtrasBtn = document.getElementById('sendExtrasBtn');
+    const sendExtrasMenu = document.getElementById('sendExtrasMenu');
+    if (sendExtrasBtn && sendExtrasMenu) {
+        sendExtrasBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sendExtrasMenu.style.display = sendExtrasMenu.style.display === 'block' ? 'none' : 'block';
+        });
+        document.addEventListener('click', (e) => {
+            if (!sendExtrasMenu.contains(e.target) && e.target !== sendExtrasBtn) {
+                sendExtrasMenu.style.display = 'none';
+            }
+        });
+    }
+
+    const createPollBtn = document.getElementById('createPollBtn');
+    if (createPollBtn) {
+        createPollBtn.addEventListener('click', async () => {
+            sendExtrasMenu.style.display = 'none';
+            const { showCreatePollDialog } = await import('./poll.js');
+            showCreatePollDialog();
+        });
+    }
+
+    const sendLocationBtn = document.getElementById('sendLocationBtn');
+    if (sendLocationBtn) {
+        sendLocationBtn.addEventListener('click', async () => {
+            sendExtrasMenu.style.display = 'none';
+            const { sendLocation } = await import('./poll.js');
+            sendLocation();
+        });
+    }
     console.log('✅ Event listeners attached');
 }
 
