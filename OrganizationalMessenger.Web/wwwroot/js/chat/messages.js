@@ -450,7 +450,7 @@ export function displayMessage(msg) {
                     ${forwardHtml}
                     ${replyHtml}
                     ${attachmentsHtml}
-                    ${messageTextHtml}
+                    ${messageTextHtml}  
                     ${statusHtml}
                 </div>
                 ${messageMenuHtml}
