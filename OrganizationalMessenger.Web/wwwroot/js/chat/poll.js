@@ -185,7 +185,12 @@ async function submitPoll(closeDialog) {
             console.log('✅ Poll created:', result.pollId);
             closeDialog();
 
-            // ✅ اگه SignalR داره، نوتیف بفرست
+            // ✅ پیام‌ها رو دوباره لود کن تا نظرسنجی نمایش داده بشه
+            import('./messages.js').then(module => {
+                module.loadMessages(false);
+            });
+
+            // ✅ نوتیف SignalR هم بفرست
             if (window.connection?.state === signalR.HubConnectionState.Connected) {
                 await window.connection.invoke("NotifyPollCreated", result.pollId, currentChat.id, currentChat.type);
             }

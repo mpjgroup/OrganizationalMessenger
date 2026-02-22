@@ -88,16 +88,13 @@ namespace OrganizationalMessenger.Web.Controllers
                 .Include(m => m.Attachments)
                 .Include(m => m.ReplyToMessage)
                     .ThenInclude(r => r.Sender)
-                     .Include(m => m.ForwardedFromUser)
+                .Include(m => m.ForwardedFromUser)
                 .Include(m => m.Reactions)
-
-                                .Include(m => m.Poll)
+                    .ThenInclude(r => r.User)
+                // ✅ اضافه کنید
+                .Include(m => m.Poll)
                     .ThenInclude(p => p.Options)
                         .ThenInclude(o => o.Votes)
-                            .ThenInclude(v => v.User)
-
-
-
                 .Where(m => !m.IsSystemMessage);
 
             // ✅ شرط جدید برای کانال
@@ -225,7 +222,7 @@ namespace OrganizationalMessenger.Web.Controllers
                         .ToList(),
 
 
-                    // ✅ اضافه کردن Poll data
+                    // ✅ نظرسنجی
                     PollId = m.PollId,
                     Poll = m.Poll != null ? new
                     {
@@ -239,9 +236,9 @@ namespace OrganizationalMessenger.Web.Controllers
                             id = o.Id,
                             text = o.Text,
                             voteCount = o.Votes.Count,
-                            hasVoted = o.Votes.Any(v => v.UserId == currentUserId.Value),
-                        })
-                    } : null,
+                            hasVoted = o.Votes.Any(v => v.UserId == currentUserId.Value)
+                        }).ToList()
+                    } : (object?)null,
 
 
 

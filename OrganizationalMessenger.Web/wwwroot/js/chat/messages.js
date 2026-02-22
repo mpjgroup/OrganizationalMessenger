@@ -343,13 +343,9 @@ export function displayMessage(msg) {
         `;
     }
 
-    let attachmentsHtml = '';
-    if (msg.attachments && msg.attachments.length > 0) {
-        const isSent = msg.senderId === window.currentUserId;
-        attachmentsHtml = msg.attachments
-            .map(file => renderFileAttachment(file, isSent))
-            .join('');
-    }
+    // ✅ متغیرها تعریف شوند
+    let messageTextHtml = '';
+    const messageContent = msg.content || msg.messageText || '';
 
     // ✅ اگه پیام نوع نظرسنجی هست و داده poll داره
     if (msg.poll && msg.pollId) {
@@ -443,7 +439,7 @@ export function displayMessage(msg) {
     const isForwarded = !!(msg.forwardedFromMessageId || msg.forwardedFromUserId);
     const messageMenuHtml = createMessageMenu(msg.id, isSent, sentAt, isForwarded);
 
-
+    let attachmentsHtml = '';
 
 
     messageEl.innerHTML = `

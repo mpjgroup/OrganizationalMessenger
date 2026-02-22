@@ -407,29 +407,34 @@ function getOnlineStatusInfo(chat) {
 // ✅ فرمت زمان آخرین بازدید - با تاریخ شمسی و روز هفته
 // ✅ فرمت زمان آخرین بازدید - با روز هفته و ساعت دقیق
 // ✅ فرمت زمان آخرین بازدید - با تاریخ شمسی کامل
+// ✅ فرمت زمان آخرین بازدید - با تاریخ شمسی کامل
+
+
+// ✅ فرمت زمان آخرین بازدید - با روز هفته و ساعت دقیق
 function formatLastSeen(lastSeenStr) {
-    if (!lastSeenStr) return 'آفلاین';
+    if (!lastSeenStr) return '';
 
     const lastSeen = new Date(lastSeenStr);
+    if (isNaN(lastSeen.getTime())) return '';
 
-    // نام روز هفته
+    // ✅ نام روزهای هفته فارسی
     const persianDays = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه'];
     const dayName = persianDays[lastSeen.getDay()];
 
-    // تاریخ شمسی
+    // ✅ تاریخ شمسی
     const persianDate = lastSeen.toLocaleDateString('fa-IR', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit'
     });
 
-    // ساعت و دقیقه
+    // ✅ ساعت و دقیقه
     const hours = lastSeen.getHours().toString().padStart(2, '0');
     const minutes = lastSeen.getMinutes().toString().padStart(2, '0');
 
-    // مثال: دوشنبه 02/05/1404 23:10
     return `${dayName} ${persianDate} ${hours}:${minutes}`;
 }
+
 
 export async function selectChat(chatEl) {
     console.log('🔄 Selecting chat:', chatEl.dataset.chatId);
@@ -499,7 +504,8 @@ function safeUpdateChatHeader(chatType, chatId, chatName) {
                 chatStatusEl.textContent = `آخرین بازدید: ${formatLastSeen(chatData.lastSeen)}`;
                 chatStatusEl.className = 'chat-status offline';
             } else {
-                chatStatusEl.textContent = 'آفلاین';
+                // ✅ فیکس: حتی بدون lastSeen، از CreatedAt استفاده کن
+                chatStatusEl.textContent = 'آخرین بازدید: نامشخص';
                 chatStatusEl.className = 'chat-status offline';
             }
         } else if (chatType === 'group' && chatData) {

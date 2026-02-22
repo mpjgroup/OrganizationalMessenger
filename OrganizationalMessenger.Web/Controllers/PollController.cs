@@ -61,7 +61,8 @@ namespace OrganizationalMessenger.Web.Controllers
             }
             await _context.SaveChangesAsync();
 
-            // ✅ ایجاد پیام مرتبط با نظرسنجی - تا در لیست پیام‌ها نمایش داده بشه
+
+            // ✅ ایجاد پیام مرتبط با نظرسنجی
             var message = new Message
             {
                 SenderId = userId.Value,
@@ -72,7 +73,7 @@ namespace OrganizationalMessenger.Web.Controllers
                 Type = MessageType.Poll,
                 SentAt = DateTime.UtcNow,
                 IsDelivered = false,
-                PollId = poll.Id  // ✅ ربط دادن به poll
+                PollId = poll.Id
             };
 
             _context.Messages.Add(message);
