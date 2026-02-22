@@ -467,18 +467,18 @@
 }
 
 /* ✅ نقطه رنگی روی موقعیت ساعت */
+/* ✅ نقطه رنگی روی موقعیت ساعت */
 .clock-dot {
     position: absolute;
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    top: 50%;
-    left: 50%;
+    /* ✅ حذف top/left/margin/transform-origin ثابت - حالا از inline style */
     margin-top: -4px;
     margin-left: -4px;
-    transform-origin: center center;
     border: 1.5px solid #fff;
     transition: all 0.3s ease;
+    z-index: 2;
 }
 
 /* ✅ وقتی آنلاینه - نقطه سبز فسفری (override) */

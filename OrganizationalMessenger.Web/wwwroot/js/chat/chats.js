@@ -302,18 +302,29 @@ export function renderChatItem(chat) {
     const statusInfo = getOnlineStatusInfo(chat);
 
     // ✅ نشانگر ساعتی (فقط برای چت خصوصی)
+    // ✅ نشانگر ساعتی (فقط برای چت خصوصی)
     let clockIndicatorHtml = '';
     if (chat.type === 'private' && !chat.isOnline && chat.lastSeen) {
         const hour = chat.lastSeenHour ?? new Date(chat.lastSeen).getHours();
         const minute = chat.lastSeenMinute ?? new Date(chat.lastSeen).getMinutes();
-        // محاسبه زاویه عقربه ساعت (360/12=30 درجه هر ساعت + دقیقه)
-        const angle = ((hour % 12) * 30) + (minute * 0.5); // 0.5 درجه هر دقیقه
+
+        // ✅ محاسبه زاویه ساعت (12 ساعته)
+        // ساعت 12 = بالا (0 درجه)، ساعت 3 = راست (90 درجه)
+        const angleDeg = ((hour % 12) * 30) + (minute * 0.5); // 0-360
+        const angleRad = (angleDeg - 90) * (Math.PI / 180); // تبدیل به رادیان (-90 چون 0 درجه CSS = راست)
+
+        // ✅ شعاع = نصف عرض آواتار (19px) - نقطه باید روی لبه باشه
+        const radius = 19; // نصف 38px
+        const dotX = radius + radius * Math.cos(angleRad); // مرکز + cos
+        const dotY = radius + radius * Math.sin(angleRad); // مرکز + sin
+
         clockIndicatorHtml = `
             <div class="clock-indicator" title="${statusInfo.tooltip}">
                 <div class="clock-dot" style="
                     background: ${statusInfo.color};
-                    box-shadow: 0 0 4px ${statusInfo.color};
-                    transform: rotate(${angle}deg) translateY(-15px);
+                    box-shadow: 0 0 6px ${statusInfo.color};
+                    top: ${dotY}px;
+                    left: ${dotX}px;
                 "></div>
             </div>
         `;

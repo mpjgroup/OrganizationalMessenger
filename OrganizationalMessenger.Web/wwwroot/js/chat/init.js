@@ -208,10 +208,16 @@ function setupCreateMenu() {
 
 
 // ✅ Ctrl+V - چسباندن فایل/تصویر از کلیپبورد
+// ✅ Ctrl+V - چسباندن فایل/تصویر از کلیپبورد
+// ✅ Ctrl+V - چسباندن فایل/تصویر از کلیپبورد
 function setupPasteHandler() {
     document.addEventListener('paste', async (e) => {
-        const { currentChat } = await import('./variables.js');
-        if (!currentChat) return; // چتی انتخاب نشده
+        // ✅ مستقیم از ماژول بخون - نه destructure
+        const variablesModule = await import('./variables.js');
+        if (!variablesModule.currentChat) {
+            console.log('⚠️ Paste ignored - no chat selected');
+            return;
+        }
 
         const items = e.clipboardData?.items;
         if (!items) return;
@@ -219,40 +225,35 @@ function setupPasteHandler() {
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
 
-            // فقط فایل‌ها (تصویر، ویدیو، ...)
             if (item.kind === 'file') {
-                e.preventDefault(); // جلوگیری از paste متن
+                e.preventDefault();
 
                 const file = item.getAsFile();
                 if (!file) continue;
 
-                // ✅ تنظیم اسم بهتر برای screenshot
+                console.log('📋 Paste detected:', file.name, file.type, file.size);
+
                 let finalFile = file;
                 if (file.type.startsWith('image/') && file.name === 'image.png') {
-                    // اسکرین‌شات - اسم بهتر بذار
                     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
                     const ext = file.type.split('/')[1] || 'png';
                     finalFile = new File([file], `screenshot-${timestamp}.${ext}`, { type: file.type });
                 }
 
-                // ✅ چک سایز
                 if (finalFile.size > 100 * 1024 * 1024) {
                     alert('حجم فایل نباید بیشتر از 100 مگابایت باشد');
                     return;
                 }
 
-                // ✅ باز کردن دیالوگ ارسال فایل (همون caption dialog)
-                const { showPasteDialog } = await import('./files.js');
-                showPasteDialog(finalFile);
-                return; // فقط اولین فایل
+                const filesModule = await import('./files.js');
+                filesModule.showPasteDialog(finalFile);
+                return;
             }
         }
     });
 
     console.log('✅ Paste handler initialized');
 }
-
-
 export function toggleMessageInput(show) {
     const inputArea = document.getElementById('messageInputArea');
     if (inputArea) {
