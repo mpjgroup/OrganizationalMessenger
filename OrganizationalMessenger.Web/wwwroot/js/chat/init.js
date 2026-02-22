@@ -209,47 +209,53 @@ function setupCreateMenu() {
 
 // ✅ Ctrl+V - چسباندن فایل/تصویر از کلیپبورد
 // ✅ Ctrl+V - چسباندن فایل/تصویر از کلیپبورد
-// ✅ Ctrl+V - چسباندن فایل/تصویر از کلیپبورد
 function setupPasteHandler() {
-    document.addEventListener('paste', async (e) => {
-        // ✅ مستقیم از ماژول بخون - نه destructure
-        const variablesModule = await import('./variables.js');
-        if (!variablesModule.currentChat) {
-            console.log('⚠️ Paste ignored - no chat selected');
-            return;
-        }
-
+    document.addEventListener('paste', (e) => {
+        // ✅ ابتدا sync بررسی کن - قبل از هر await
         const items = e.clipboardData?.items;
         if (!items) return;
 
+        // ✅ پیدا کردن فایل به صورت sync
+        let fileItem = null;
         for (let i = 0; i < items.length; i++) {
-            const item = items[i];
-
-            if (item.kind === 'file') {
-                e.preventDefault();
-
-                const file = item.getAsFile();
-                if (!file) continue;
-
-                console.log('📋 Paste detected:', file.name, file.type, file.size);
-
-                let finalFile = file;
-                if (file.type.startsWith('image/') && file.name === 'image.png') {
-                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-                    const ext = file.type.split('/')[1] || 'png';
-                    finalFile = new File([file], `screenshot-${timestamp}.${ext}`, { type: file.type });
-                }
-
-                if (finalFile.size > 100 * 1024 * 1024) {
-                    alert('حجم فایل نباید بیشتر از 100 مگابایت باشد');
-                    return;
-                }
-
-                const filesModule = await import('./files.js');
-                filesModule.showPasteDialog(finalFile);
-                return;
+            if (items[i].kind === 'file') {
+                fileItem = items[i];
+                break;
             }
         }
+        if (!fileItem) return; // فایلی نیست، بذار مرورگر متن رو paste کنه
+
+        e.preventDefault(); // ✅ باید قبل از async باشه
+
+        const file = fileItem.getAsFile(); // ✅ sync بخون
+        if (!file) return;
+
+        // ✅ حالا async بخش شروع میشه
+        (async () => {
+            // بررسی currentChat از ماژول
+            const { currentChat } = await import('./variables.js');
+            if (!currentChat) {
+                console.log('⚠️ Paste ignored - no chat selected');
+                return;
+            }
+
+            console.log('📋 Paste detected:', file.name, file.type, file.size);
+
+            let finalFile = file;
+            if (file.type.startsWith('image/') && file.name === 'image.png') {
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                const ext = file.type.split('/')[1] || 'png';
+                finalFile = new File([file], `screenshot-${timestamp}.${ext}`, { type: file.type });
+            }
+
+            if (finalFile.size > 100 * 1024 * 1024) {
+                alert('حجم فایل نباید بیشتر از 100 مگابایت باشد');
+                return;
+            }
+
+            const filesModule = await import('./files.js');
+            filesModule.showPasteDialog(finalFile);
+        })();
     });
 
     console.log('✅ Paste handler initialized');

@@ -470,15 +470,18 @@
 /* ✅ نقطه رنگی روی موقعیت ساعت */
 .clock-dot {
     position: absolute;
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
-    /* ✅ حذف top/left/margin/transform-origin ثابت - حالا از inline style */
-    margin-top: -4px;
-    margin-left: -4px;
     border: 1.5px solid #fff;
     transition: all 0.3s ease;
     z-index: 2;
+    /* بدون margin - مقادیر top/left از inline style میاد */
+}
+
+/* ✅ وقتی clock-indicator وجود داره، ::after رو مخفی کن */
+.chat-avatar-wrapper:has(.clock-indicator) .chat-avatar:not(.online)::after {
+    display: none !important;
 }
 
 /* ✅ وقتی آنلاینه - نقطه سبز فسفری (override) */
