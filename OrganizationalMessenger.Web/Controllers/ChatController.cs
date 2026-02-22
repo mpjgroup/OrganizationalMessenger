@@ -1175,7 +1175,51 @@ namespace OrganizationalMessenger.Web.Controllers
             });
         }
 
+        // ✅ بی‌صدا / صدادار کردن گروه یا کانال
+        [HttpPost]
+        [Route("Chat/ToggleMute")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleMute([FromBody] ToggleMuteRequest request)
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null) return Unauthorized();
 
+            try
+            {
+                if (request.ChatType == "group")
+                {
+                    var membership = await _context.UserGroups
+                        .FirstOrDefaultAsync(ug => ug.GroupId == request.ChatId && ug.UserId == userId.Value);
+
+                    if (membership == null)
+                        return Json(new { success = false, message = "عضو گروه نیستید" });
+
+                    membership.IsMuted = !membership.IsMuted;
+                    await _context.SaveChangesAsync();
+
+                    return Json(new { success = true, isMuted = membership.IsMuted });
+                }
+                else if (request.ChatType == "channel")
+                {
+                    var membership = await _context.UserChannels
+                        .FirstOrDefaultAsync(uc => uc.ChannelId == request.ChatId && uc.UserId == userId.Value);
+
+                    if (membership == null)
+                        return Json(new { success = false, message = "عضو کانال نیستید" });
+
+                    membership.IsMuted = !membership.IsMuted;
+                    await _context.SaveChangesAsync();
+
+                    return Json(new { success = true, isMuted = membership.IsMuted });
+                }
+
+                return Json(new { success = false, message = "نوع چت نامعتبر" });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
 
     }
 
@@ -1196,4 +1240,12 @@ namespace OrganizationalMessenger.Web.Controllers
         public int? ReplyToId { get; set; }  // ✅ اضافه کنید
         public int? Duration { get; set; }   // ✅ برای فایل‌های صوتی
     }
+
+    public class ToggleMuteRequest
+    {
+        public int ChatId { get; set; }
+        public string ChatType { get; set; } = "";
+    }
+
+
 }

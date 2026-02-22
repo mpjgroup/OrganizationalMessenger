@@ -418,3 +418,19 @@
         font-size: 14px;
         margin: 0;
     }
+
+
+
+/* ✅ Badge خاکستری برای چت‌های Mute شده */
+.unread-badge.muted {
+    background: linear-gradient(135deg, #a0a0a0, #888888);
+    box-shadow: 0 2px 8px rgba(128, 128, 128, 0.3);
+    animation: slideInBadge 0.4s ease;
+}
+
+/* ✅ آیکون بی‌صدا کنار اسم */
+.muted-icon {
+    font-size: 11px;
+    color: #a0a0a0;
+    margin-left: 4px;
+}

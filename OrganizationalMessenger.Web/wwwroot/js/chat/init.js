@@ -1,7 +1,7 @@
 ﻿import { setConnection, setIsPageFocused, currentChat } from './variables.js';
 import { setupSignalR } from './signalr.js';
 import { markMessagesAsRead, removeUnreadSeparator, loadMessageSettings } from './messages.js';
-import { setupScrollListener } from './message-handlers.js';
+import { setupScrollListener, requestNotificationPermission } from './message-handlers.js';
 import './message-menu.js';
 import './forward.js';
 import './reply.js';
@@ -34,6 +34,7 @@ export async function initChat() {
     setupEventListeners();
     setupScrollListener();
     setupCreateMenu();
+    requestNotificationPermission(); // ✅ درخواست مجوز نوتیفیکیشن
 
     window.addEventListener('focus', function () {
         setIsPageFocused(true);

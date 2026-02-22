@@ -273,6 +273,8 @@ function setTabBadge(tabName, count) {
     }
 }
 
+
+
 export function renderChatItem(chat) {
     const container = document.getElementById('chatList');
     if (!container) return;
@@ -282,9 +284,15 @@ export function renderChatItem(chat) {
     chatEl.dataset.chatId = chat.id;
     chatEl.dataset.chatType = chat.type;
 
+    // ✅ رنگ badge بر اساس muted بودن
+    const isMuted = chat.isMuted || false;
+    const badgeClass = isMuted ? 'unread-badge muted' : 'unread-badge';
     const unreadBadge = chat.unreadCount > 0
-        ? `<span class="unread-badge">${chat.unreadCount > 99 ? '99+' : chat.unreadCount}</span>`
+        ? `<span class="${badgeClass}">${chat.unreadCount > 99 ? '99+' : chat.unreadCount}</span>`
         : '';
+
+    // ✅ آیکون muted
+    const mutedIcon = isMuted ? '<i class="fas fa-bell-slash muted-icon" title="بی‌صدا"></i>' : '';
 
     let avatarHtml = chat.avatar
         ? `<img src="${chat.avatar}" class="chat-avatar-img" alt="${escapeHtml(chat.name)}" />`
@@ -296,7 +304,7 @@ export function renderChatItem(chat) {
         </div>
         <div class="chat-info">
             <div class="chat-name-row">
-                <span class="chat-name">${escapeHtml(chat.name)}</span>
+                <span class="chat-name">${mutedIcon} ${escapeHtml(chat.name)}</span>
                 ${unreadBadge}
             </div>
         </div>
@@ -381,6 +389,32 @@ function safeUpdateChatHeader(chatType, chatId, chatName) {
     } else if (manageMembersBtn) {
         manageMembersBtn.style.display = 'none';
     }
+
+
+
+    // ✅ دکمه Mute/Unmute
+    const muteBtn = document.getElementById('moreBtn');
+    if (muteBtn && (chatType === 'group' || chatType === 'channel')) {
+        muteBtn.style.display = 'flex';
+        const isMuted = chatData?.isMuted || false;
+        muteBtn.innerHTML = isMuted
+            ? '<i class="fas fa-bell" title="صدادار کردن"></i>'
+            : '<i class="fas fa-bell-slash" title="بی‌صدا کردن"></i>';
+        muteBtn.title = isMuted ? 'صدادار کردن' : 'بی‌صدا کردن';
+
+        // حذف listener قبلی
+        const newMuteBtn = muteBtn.cloneNode(true);
+        muteBtn.parentNode.replaceChild(newMuteBtn, muteBtn);
+
+        newMuteBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await toggleMuteChat(chatId, chatType);
+        });
+    } else if (muteBtn && chatType === 'private') {
+        muteBtn.style.display = 'none';
+    }
+
+
 }
 
 function safeSetupMoreButton(chatType, chatId) {
@@ -430,3 +464,35 @@ export function getActiveTab() {
     return activeTabBtn?.dataset.tab || 'all';
 }
 
+// ✅ بی‌صدا / صدادار کردن
+async function toggleMuteChat(chatId, chatType) {
+    try {
+        const response = await fetch('/Chat/ToggleMute', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': getCsrfToken()
+            },
+            body: JSON.stringify({ chatId, chatType })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            // آپدیت دکمه
+            const muteBtn = document.getElementById('moreBtn');
+            if (muteBtn) {
+                muteBtn.innerHTML = result.isMuted
+                    ? '<i class="fas fa-bell" title="صدادار کردن"></i>'
+                    : '<i class="fas fa-bell-slash" title="بی‌صدا کردن"></i>';
+                muteBtn.title = result.isMuted ? 'صدادار کردن' : 'بی‌صدا کردن';
+            }
+
+            // ریلود لیست چت
+            await loadChats(getActiveTab());
+
+            console.log(`✅ Mute toggled: ${result.isMuted ? 'Muted' : 'Unmuted'}`);
+        }
+    } catch (error) {
+        console.error('❌ Toggle mute error:', error);
+    }
+}

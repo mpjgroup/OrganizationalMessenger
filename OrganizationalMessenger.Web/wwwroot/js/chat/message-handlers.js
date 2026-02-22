@@ -13,21 +13,17 @@ import { loadMessages } from './messages.js';
 export function handleReceiveMessage(data) {
     console.log('📨 ReceiveMessage:', data);
 
-    // ✅ تشخیص دقیق اینکه پیام مال چت فعلی هست یا نه
     let isCurrentChat = false;
 
     if (currentChat) {
         if (currentChat.type === 'private') {
-            // چت خصوصی: فقط اگه فرستنده همون طرف مقابل باشه
             isCurrentChat = currentChat.id == data.senderId &&
                 (!data.chatType || data.chatType === 'private') &&
                 !data.groupId && !data.channelId;
         } else if (currentChat.type === 'group') {
-            // گروه: chatId باید برابر groupId باشه و chatType هم group
             isCurrentChat = currentChat.id == data.chatId &&
                 (data.chatType === 'group');
         } else if (currentChat.type === 'channel') {
-            // کانال: chatId باید برابر channelId باشه و chatType هم channel
             isCurrentChat = currentChat.id == data.chatId &&
                 (data.chatType === 'channel');
         }
@@ -60,7 +56,18 @@ export function handleReceiveMessage(data) {
     } else {
         updateUnreadBadge(data);
         loadChats(getActiveTab());
-        showNotification(data.senderName, data.content);
+
+        // ✅ نوتیفیکیشن - چک muted بودن
+        const chatId = data.chatId || data.senderId;
+        const chatType = data.chatType || 'private';
+        const chatData = (window.chats || []).find(c =>
+            c.id == chatId && c.type === chatType
+        );
+        const isMuted = chatData?.isMuted || false;
+
+        if (!isMuted) {
+            showBrowserNotification(data.senderName, data.content, data);
+        }
     }
 }
 
@@ -100,15 +107,14 @@ export function handleMessageSent(data) {
     displayMessage(data);
     scrollToBottom();
 
-    // ✅ ریلود لیست چت (برای اضافه شدن مخاطب جدید به لیست افراد)
     loadChats(getActiveTab());
 }
+
 export function updateMessageStatus(messageId, status, readAt = null) {
     console.log(`🔄 Updating message ${messageId} to ${status}`);
 
     const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
 
-    // ✅ فقط برای پیام‌های ارسالی (sent)
     if (!messageEl?.classList.contains('sent')) {
         console.log('⚠️ Message is not sent, skipping status update');
         return;
@@ -154,6 +160,7 @@ export function updateMessageStatus(messageId, status, readAt = null) {
     sendInfoEl.outerHTML = newStatusHtml;
     console.log(`✅ Message ${messageId} status updated to ${status}`);
 }
+
 export function setupScrollListener() {
     const container = document.getElementById('messagesContainer');
     if (!container) return;
@@ -161,10 +168,7 @@ export function setupScrollListener() {
     let isLoadingMore = false;
 
     container.addEventListener('scroll', async function () {
-        // ✅ جلوگیری از چند بار صدا زدن همزمان
-        if (isLoadingMore) {
-            return;
-        }
+        if (isLoadingMore) return;
 
         if (container.scrollTop < 100 && hasMoreMessages && !isLoadingMessages) {
             console.log('🔄 Loading more messages...');
@@ -173,7 +177,6 @@ export function setupScrollListener() {
             try {
                 await loadMessages(true);
             } finally {
-                // ✅ بعد از 500ms دوباره اجازه بده
                 setTimeout(() => {
                     isLoadingMore = false;
                 }, 500);
@@ -184,26 +187,72 @@ export function setupScrollListener() {
     console.log('✅ Scroll listener attached');
 }
 
-function showNotification(title, body) {
+// ✅ نوتیفیکیشن بروزر - کامل
+function showBrowserNotification(title, body, data) {
+    // چک مجوز
+    if (!('Notification' in window)) return;
+
     if (Notification.permission === 'granted') {
-        new Notification(title, { body });
+        createNotification(title, body, data);
+    } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+                createNotification(title, body, data);
+            }
+        });
+    }
+}
+
+function createNotification(title, body, data) {
+    const notifTitle = title || 'پیام جدید';
+    let notifBody = body || '';
+
+    // ��گر پیام فایل بود
+    if (!notifBody && data?.type) {
+        const typeMap = { 1: '🖼️ تصویر', 2: '🎵 صوتی', 3: '🎬 ویدیو', 4: '📎 فایل' };
+        notifBody = typeMap[data.type] || 'پیام جدید';
+    }
+
+    const notification = new Notification(notifTitle, {
+        body: notifBody,
+        icon: data?.senderAvatar || '/images/default-avatar.png',
+        badge: '/images/logo-badge.png',
+        tag: `msg-${data?.id || Date.now()}`,
+        renotify: true,
+        silent: false
+    });
+
+    // کلیک روی نوتیفیکیشن → فوکوس روی پنجره
+    notification.onclick = () => {
+        window.focus();
+        notification.close();
+    };
+
+    // بستن خودکار بعد از 5 ثانیه
+    setTimeout(() => notification.close(), 5000);
+}
+
+// ✅ درخواست مجوز نوتیفیکیشن در شروع
+export function requestNotificationPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().then(permission => {
+            console.log('🔔 Notification permission:', permission);
+        });
     }
 }
 
 
 function updateUnreadBadge(data) {
-    // پیدا کردن chat item
     const chatId = data.chatId || data.senderId;
-    const chatItem = document.querySelector(`.chat-item[data-chat-id="${chatId}"]`);
+    const chatType = data.chatType || 'private';
+    const chatItem = document.querySelector(`.chat-item[data-chat-id="${chatId}"][data-chat-type="${chatType}"]`);
     if (!chatItem) return;
 
     let badge = chatItem.querySelector('.unread-badge');
     if (badge) {
-        // افزایش شمارنده
         const current = parseInt(badge.textContent) || 0;
         badge.textContent = current + 1 > 99 ? '99+' : current + 1;
     } else {
-        // ساخت badge جدید
         const nameRow = chatItem.querySelector('.chat-name-row');
         if (nameRow) {
             badge = document.createElement('span');
