@@ -57,7 +57,7 @@ export function handleReceiveMessage(data) {
         updateUnreadBadge(data);
         loadChats(getActiveTab());
 
-        // ✅ نوتیفیکیشن - چک muted بودن
+        // ✅ نوتیف��کیشن - چک muted بودن
         const chatId = data.chatId || data.senderId;
         const chatType = data.chatType || 'private';
         const chatData = (window.chats || []).find(c =>
@@ -66,7 +66,9 @@ export function handleReceiveMessage(data) {
         const isMuted = chatData?.isMuted || false;
 
         if (!isMuted) {
-            showBrowserNotification(data.senderName, data.content, data);
+            // ✅ متن پیام رو از فیلدهای مختلف پیدا کن
+            const messageText = data.content || data.text || data.messageText || '';
+            showBrowserNotification(data.senderName, messageText, data);
         }
     }
 }
@@ -187,57 +189,193 @@ export function setupScrollListener() {
     console.log('✅ Scroll listener attached');
 }
 
-// ✅ نوتیفیکیشن بروزر - کامل
+// ============================================
+// 🔔 نوتیفیکیشن بروزر
+// ============================================
+
+const NOTIF_PERMISSION_KEY = 'notif_permission_asked';
+
+// ✅ نمایش پاپ‌آپ سفارشی قبل از درخواست مجوز بروزر
+export function requestNotificationPermission() {
+    if (!('Notification' in window)) {
+        console.log('⚠️ Browser does not support notifications');
+        return;
+    }
+
+    // اگر قبلاً مجوز داده شده
+    if (Notification.permission === 'granted') {
+        console.log('🔔 Notification already granted');
+        return;
+    }
+
+    // اگر قبلاً رد کرده
+    if (Notification.permission === 'denied') {
+        console.log('🔕 Notification denied by user');
+        return;
+    }
+
+    // اگر قبلاً پاپ‌آپ رو دیده (ولی هنوز default هست)
+    if (localStorage.getItem(NOTIF_PERMISSION_KEY) === 'asked') {
+        console.log('🔔 Permission popup already shown before');
+        return;
+    }
+
+    // ✅ با تأخیر 3 ثانیه نشون بده (تا صفحه کامل لود بشه)
+    setTimeout(() => {
+        showNotificationPermissionDialog();
+    }, 3000);
+}
+
+function showNotificationPermissionDialog() {
+    // حذف قبلی
+    document.querySelector('.notif-permission-overlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'notif-permission-overlay';
+    overlay.innerHTML = `
+        <div class="notif-permission-dialog">
+            <div class="notif-permission-icon">
+                <div class="notif-bell-wrapper">
+                    <i class="fas fa-bell notif-bell-icon"></i>
+                    <span class="notif-bell-badge">!</span>
+                </div>
+            </div>
+            <div class="notif-permission-body">
+                <h3>دریافت اعلان پیام‌ها</h3>
+                <p>
+                    با فعال کردن اعلان‌ها، هر وقت پیام جدیدی دریافت کنید 
+                    <strong>حتی اگر در صفحه دیگری باشید</strong>،
+                    یک اعلان روی صفحه نمایش داده می‌شود.
+                </p>
+                <div class="notif-features">
+                    <div class="notif-feature-item">
+                        <i class="fas fa-comment-dots"></i>
+                        <span>اعلان پیام‌های خصوصی</span>
+                    </div>
+                    <div class="notif-feature-item">
+                        <i class="fas fa-users"></i>
+                        <span>اعلان پیام‌های گروهی</span>
+                    </div>
+                    <div class="notif-feature-item">
+                        <i class="fas fa-bullhorn"></i>
+                        <span>اعلان پیام‌های کانال</span>
+                    </div>
+                    <div class="notif-feature-item">
+                        <i class="fas fa-bell-slash"></i>
+                        <span>امکان بی‌صدا کردن هر گروه/کانال</span>
+                    </div>
+                </div>
+            </div>
+            <div class="notif-permission-footer">
+                <button class="notif-btn-accept" id="notifAcceptBtn">
+                    <i class="fas fa-bell"></i>
+                    فعال کردن اعلان‌ها
+                </button>
+                <button class="notif-btn-later" id="notifLaterBtn">
+                    بعداً
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // ✅ دکمه قبول
+    document.getElementById('notifAcceptBtn').addEventListener('click', () => {
+        overlay.remove();
+        localStorage.setItem(NOTIF_PERMISSION_KEY, 'asked');
+
+        // ✅ حالا درخواست واقعی مجوز بروزر
+        Notification.requestPermission().then(permission => {
+            console.log('🔔 Notification permission result:', permission);
+            if (permission === 'granted') {
+                // نمایش یه نوتیف تستی
+                try {
+                    new Notification('پیام‌رسان سازمانی', {
+                        body: '✅ اعلان‌ها با موفقیت فعال شدند!',
+                        icon: '/images/default-avatar.png',
+                        tag: 'test-notif'
+                    });
+                } catch (e) {
+                    console.warn('Test notification failed:', e);
+                }
+            }
+        }).catch(err => {
+            console.error('Permission request error:', err);
+        });
+    });
+
+    // ✅ دکمه بعداً
+    document.getElementById('notifLaterBtn').addEventListener('click', () => {
+        overlay.remove();
+        localStorage.setItem(NOTIF_PERMISSION_KEY, 'asked');
+    });
+
+    // بستن با کلیک روی overlay
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            overlay.remove();
+            localStorage.setItem(NOTIF_PERMISSION_KEY, 'asked');
+        }
+    });
+}
+
+// ✅ نمایش نوتیفیکیشن بروزر
 function showBrowserNotification(title, body, data) {
-    // چک مجوز
     if (!('Notification' in window)) return;
 
-    if (Notification.permission === 'granted') {
-        createNotification(title, body, data);
-    } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(permission => {
-            if (permission === 'granted') {
-                createNotification(title, body, data);
-            }
-        });
+    console.log('🔔 Trying to show notification:', { title, body, permission: Notification.permission });
+
+    if (Notification.permission !== 'granted') {
+        console.log('⚠️ Notification permission not granted');
+        return;
     }
+
+    createNotification(title, body, data);
 }
 
 function createNotification(title, body, data) {
     const notifTitle = title || 'پیام جدید';
     let notifBody = body || '';
 
-    // ��گر پیام فایل بود
-    if (!notifBody && data?.type) {
-        const typeMap = { 1: '🖼️ تصویر', 2: '🎵 صوتی', 3: '🎬 ویدیو', 4: '📎 فایل' };
-        notifBody = typeMap[data.type] || 'پیام جدید';
+    // اگر پیام فایل/ویس بود و متن نداره
+    if (!notifBody) {
+        if (data?.hasAttachments || data?.attachments?.length > 0) {
+            notifBody = '📎 فایل ضمیمه';
+        } else {
+            notifBody = 'پیام جدید';
+        }
     }
 
-    const notification = new Notification(notifTitle, {
-        body: notifBody,
-        icon: data?.senderAvatar || '/images/default-avatar.png',
-        badge: '/images/logo-badge.png',
-        tag: `msg-${data?.id || Date.now()}`,
-        renotify: true,
-        silent: false
-    });
+    // محدود کردن طول
+    if (notifBody.length > 100) {
+        notifBody = notifBody.substring(0, 97) + '...';
+    }
 
-    // کلیک روی نوتیفیکیشن → فوکوس روی پنجره
-    notification.onclick = () => {
-        window.focus();
-        notification.close();
-    };
-
-    // بستن خودکار بعد از 5 ثانیه
-    setTimeout(() => notification.close(), 5000);
-}
-
-// ✅ درخواست مجوز نوتیفیکیشن در شروع
-export function requestNotificationPermission() {
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission().then(permission => {
-            console.log('🔔 Notification permission:', permission);
+    try {
+        const notification = new Notification(notifTitle, {
+            body: notifBody,
+            icon: data?.senderAvatar || '/images/default-avatar.png',
+            tag: `msg-${data?.id || Date.now()}`,
+            renotify: true,
+            silent: false,
+            requireInteraction: false
         });
+
+        // کلیک روی نوتیفیکیشن → فوکوس روی پنجره
+        notification.onclick = () => {
+            window.focus();
+            notification.close();
+        };
+
+        // بستن خودکار بعد از 6 ثانیه
+        setTimeout(() => {
+            try { notification.close(); } catch (e) { }
+        }, 6000);
+
+        console.log('✅ Notification shown:', notifTitle);
+    } catch (error) {
+        console.error('❌ Notification error:', error);
     }
 }
 

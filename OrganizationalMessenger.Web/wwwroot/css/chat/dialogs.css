@@ -217,3 +217,230 @@
         background: var(--danger-hover);
         transform: scale(1.02);
     }
+
+
+
+
+
+
+
+/* ============================================
+   Notification Permission Dialog
+============================================ */
+.notif-permission-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    animation: fadeIn 0.3s ease;
+    backdrop-filter: blur(4px);
+}
+
+.notif-permission-dialog {
+    background: white;
+    border-radius: 20px;
+    max-width: 420px;
+    width: 90%;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.4s ease;
+}
+
+/* آیکون بالای دیالوگ */
+.notif-permission-icon {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.notif-bell-wrapper {
+    position: relative;
+    width: 70px;
+    height: 70px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: bellRing 2s ease-in-out infinite;
+}
+
+.notif-bell-icon {
+    font-size: 32px;
+    color: white;
+}
+
+.notif-bell-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 22px;
+    height: 22px;
+    background: #ff4757;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    border: 2px solid white;
+    animation: pulseBadge 1.5s ease-in-out infinite;
+}
+
+@keyframes bellRing {
+    0%, 100% {
+        transform: rotate(0deg);
+    }
+
+    10% {
+        transform: rotate(14deg);
+    }
+
+    20% {
+        transform: rotate(-14deg);
+    }
+
+    30% {
+        transform: rotate(10deg);
+    }
+
+    40% {
+        transform: rotate(-8deg);
+    }
+
+    50% {
+        transform: rotate(4deg);
+    }
+
+    60% {
+        transform: rotate(0deg);
+    }
+}
+
+@keyframes pulseBadge {
+    0%, 100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.2);
+    }
+}
+
+/* بدنه */
+.notif-permission-body {
+    padding: 24px 28px 16px;
+    text-align: center;
+}
+
+    .notif-permission-body h3 {
+        margin: 0 0 10px;
+        font-size: 19px;
+        color: #1a1a2e;
+        font-weight: 700;
+    }
+
+    .notif-permission-body p {
+        margin: 0 0 20px;
+        font-size: 14px;
+        color: #555;
+        line-height: 1.7;
+    }
+
+        .notif-permission-body p strong {
+            color: #667eea;
+        }
+
+/* لیست ویژگی‌ها */
+.notif-features {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: right;
+    margin-bottom: 8px;
+}
+
+.notif-feature-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    background: #f8f9ff;
+    border-radius: 10px;
+    font-size: 13px;
+    color: #444;
+    transition: background 0.2s;
+}
+
+    .notif-feature-item:hover {
+        background: #eef0ff;
+    }
+
+    .notif-feature-item i {
+        color: #667eea;
+        font-size: 15px;
+        width: 20px;
+        text-align: center;
+        flex-shrink: 0;
+    }
+
+/* دکمه‌ها */
+.notif-permission-footer {
+    padding: 16px 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.notif-btn-accept {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    transition: all 0.3s ease;
+}
+
+    .notif-btn-accept:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+    }
+
+    .notif-btn-accept:active {
+        transform: translateY(0);
+    }
+
+.notif-btn-later {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    cursor: pointer;
+    background: transparent;
+    color: #888;
+    transition: all 0.2s;
+}
+
+    .notif-btn-later:hover {
+        background: #f5f5f5;
+        color: #555;
+    }
