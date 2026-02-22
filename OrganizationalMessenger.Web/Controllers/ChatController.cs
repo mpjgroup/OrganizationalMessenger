@@ -1075,6 +1075,66 @@ namespace OrganizationalMessenger.Web.Controllers
             });
         }
 
+
+
+        // ✅ شمارنده نخوانده‌ها برای تب‌ها
+        [HttpGet]
+        [Route("Chat/GetUnreadCounts")]
+        public async Task<IActionResult> GetUnreadCounts()
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null) return Unauthorized();
+
+            // خصوصی
+            var privateUnread = await _context.Messages
+                .Where(m => m.ReceiverId == userId.Value &&
+                            m.GroupId == null &&
+                            m.ChannelId == null &&
+                            !m.IsDeleted &&
+                            m.SenderId != userId.Value &&
+                            !_context.MessageReads.Any(mr => mr.MessageId == m.Id && mr.UserId == userId.Value))
+                .CountAsync();
+
+            // گروه‌ها
+            var userGroupIds = await _context.UserGroups
+                .Where(ug => ug.UserId == userId.Value && ug.IsActive)
+                .Select(ug => ug.GroupId)
+                .ToListAsync();
+
+            var groupUnread = await _context.Messages
+                .Where(m => m.GroupId != null &&
+                            userGroupIds.Contains(m.GroupId.Value) &&
+                            !m.IsDeleted &&
+                            m.SenderId != userId.Value &&
+                            !_context.MessageReads.Any(mr => mr.MessageId == m.Id && mr.UserId == userId.Value))
+                .CountAsync();
+
+            // کانال‌ها
+            var userChannelIds = await _context.UserChannels
+                .Where(uc => uc.UserId == userId.Value && uc.IsActive)
+                .Select(uc => uc.ChannelId)
+                .ToListAsync();
+
+            var channelUnread = await _context.Messages
+                .Where(m => m.ChannelId != null &&
+                            userChannelIds.Contains(m.ChannelId.Value) &&
+                            !m.IsDeleted &&
+                            m.SenderId != userId.Value &&
+                            !_context.MessageReads.Any(mr => mr.MessageId == m.Id && mr.UserId == userId.Value))
+                .CountAsync();
+
+            return Json(new
+            {
+                success = true,
+                privateUnread,
+                groupUnread,
+                channelUnread,
+                totalUnread = privateUnread + groupUnread + channelUnread
+            });
+        }
+
+
+
     }
 
     public class EditMessageRequest

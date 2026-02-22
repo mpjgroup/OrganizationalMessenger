@@ -25,8 +25,51 @@ export async function loadChats(tab = 'all') {
         container.innerHTML = '';
         chatsData.forEach(chat => renderChatItem(chat));
         console.log('✅ Chat list rendered');
+
+        // ✅ آپدیت شمارنده تب‌ها بعد از هر بار لود
+        await updateTabBadges();
     } catch (error) {
         console.error('❌ Load chats error:', error);
+    }
+}
+
+// ✅ تابع جدید: آپدیت badge روی تب‌ها
+export async function updateTabBadges() {
+    try {
+        const response = await fetch('/Chat/GetUnreadCounts');
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (!data.success) return;
+
+        console.log('📊 Unread counts:', data);
+
+        // آپدیت هر تب
+        setTabBadge('all', data.totalUnread);
+        setTabBadge('private', data.privateUnread);
+        setTabBadge('groups', data.groupUnread);
+        setTabBadge('channels', data.channelUnread);
+    } catch (error) {
+        console.error('❌ Update tab badges error:', error);
+    }
+}
+
+function setTabBadge(tabName, count) {
+    const tabBtn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+    if (!tabBtn) return;
+
+    // حذف badge قبلی
+    let badge = tabBtn.querySelector('.tab-badge');
+
+    if (count > 0) {
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'tab-badge';
+            tabBtn.appendChild(badge);
+        }
+        badge.textContent = count > 99 ? '99+' : count;
+    } else {
+        if (badge) badge.remove();
     }
 }
 
@@ -107,6 +150,9 @@ export async function selectChat(chatEl) {
 
         await markMessagesAsRead();
 
+        // ✅ آپدیت تب‌ها بعد از mark as read
+        await updateTabBadges();
+
         setTimeout(() => {
             const sep = document.querySelector('.unread-separator');
             if (sep) sep.remove();
@@ -125,14 +171,11 @@ function safeUpdateChatHeader(chatType, chatId, chatName) {
     const chatAvatarSmall = document.querySelector('.chat-avatar-small');
     if (chatAvatarSmall && chatData) {
         if (chatData.avatar) {
-            // عکس موجود است
             chatAvatarSmall.innerHTML = `<img src="${chatData.avatar}" class="chat-avatar-img-small" alt="${escapeHtml(chatName)}" />`;
         } else {
-            // initials نمایش بده
             chatAvatarSmall.innerHTML = `<div class="chat-avatar-initials-small">${getInitials(chatName)}</div>`;
         }
 
-        // وضعیت آنلاین
         if (chatData.isOnline) {
             chatAvatarSmall.classList.add('online');
         } else {
@@ -150,19 +193,17 @@ function safeUpdateChatHeader(chatType, chatId, chatName) {
     }
 
     // مدیریت اعضا
-    // مدیریت اعضا
     const manageMembersBtn = document.getElementById('manageMembersBtn');
     if (manageMembersBtn && (chatType === 'group' || chatType === 'channel')) {
         manageMembersBtn.style.display = 'flex';
         const hasPermission = chatData?.role === 'Owner' || chatData?.isAdmin;
 
-        // ✅ همه میتونن ببینن (disabled نمیشه)
         manageMembersBtn.disabled = false;
         manageMembersBtn.title = hasPermission ? 'مدیریت اعضا' : 'مشاهده اعضا';
         manageMembersBtn.style.opacity = '1';
         manageMembersBtn.dataset.chatId = chatId;
         manageMembersBtn.dataset.chatType = chatType;
-        manageMembersBtn.dataset.isAdmin = hasPermission ? 'true' : 'false';  // ✅ ذخیره مجوز
+        manageMembersBtn.dataset.isAdmin = hasPermission ? 'true' : 'false';
     } else if (manageMembersBtn) {
         manageMembersBtn.style.display = 'none';
     }
@@ -180,8 +221,6 @@ function safeSetupMoreButton(chatType, chatId) {
     newMoreBtn.style.display = 'flex';
     newMoreBtn.title = 'گزینه‌های بیشتر';
     newMoreBtn.innerHTML = '<i class="fas fa-ellipsis-v"></i>';
-
-    // مدیریت اعضا فقط از manageMembersBtn
 }
 
 // Global event listener برای manageMembersBtn
