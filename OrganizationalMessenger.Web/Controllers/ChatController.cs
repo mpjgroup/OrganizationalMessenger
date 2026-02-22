@@ -310,13 +310,23 @@ namespace OrganizationalMessenger.Web.Controllers
             var chats = new List<dynamic>();
 
             // ✅ چت‌های خصوصی
+            // ✅ چت‌های خصوصی - فقط افرادی که ارتباط داشته‌ایم
+            // ✅ چت‌های خصوصی - فقط افرادی که ارتباط داشته‌ایم
             if (tab == "all" || tab == "private")
             {
+                // ✅ فقط کاربرانی که با آنها پیام رد و بدل شده
+                var contactUserIds = await _context.Messages
+                    .Where(m => (m.SenderId == userId || m.ReceiverId == userId) &&
+                                m.GroupId == null && m.ChannelId == null)
+                    .Select(m => m.SenderId == userId ? m.ReceiverId.Value : m.SenderId)
+                    .Where(id => id != userId)
+                    .Distinct()
+                    .ToListAsync();
+
                 var users = await _context.Users
-                    .Where(u => u.Id != userId && u.IsActive)
+                    .Where(u => contactUserIds.Contains(u.Id) && u.IsActive)
                     .OrderBy(u => u.FirstName)
                     .ThenBy(u => u.LastName)
-                    .Take(50)
                     .ToListAsync();
 
                 foreach (var user in users)
@@ -343,13 +353,12 @@ namespace OrganizationalMessenger.Web.Controllers
                         name = fullName,
                         avatar = user.AvatarUrl ?? "/images/default-avatar.png",
                         isOnline = user.IsOnline,
-                        lastMessage = lastMessage != null ?(lastMessage.MessageText ?? lastMessage.Content ?? "") : "",
+                        lastMessage = lastMessage != null ? (lastMessage.MessageText ?? lastMessage.Content ?? "") : "",
                         lastMessageTime = lastMessage?.SentAt ?? user.LastSeen ?? user.CreatedAt,
-                        lastMessageId = lastMessage?.Id ?? 0,   // 👈 این خط
+                        lastMessageId = lastMessage?.Id ?? 0,
                         unreadCount,
                         messageDirection = lastMessage?.SenderId == userId ? "sent" : "received"
                     });
-
                 }
             }
 
@@ -450,7 +459,42 @@ namespace OrganizationalMessenger.Web.Controllers
 
 
 
+        // ✅ جستجوی کاربر برای شروع چت جدید
+        // ✅ جستجوی کاربران برای شروع چت جدید
+        [HttpGet]
+        [Route("Chat/SearchUsers")]
+        public async Task<IActionResult> SearchUsers(string query = "")
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null) return Unauthorized();
 
+            IQueryable<User> usersQuery = _context.Users
+                .Where(u => u.Id != userId.Value && u.IsActive);
+
+            // اگر query خالی باشد، همه کاربران را برگردان
+            if (!string.IsNullOrWhiteSpace(query) && query.Length >= 2)
+            {
+                usersQuery = usersQuery.Where(u =>
+                    u.FirstName.Contains(query) || u.LastName.Contains(query) ||
+                    (u.PhoneNumber != null && u.PhoneNumber.Contains(query)) ||
+                    (u.Username != null && u.Username.Contains(query)));
+            }
+
+            var users = await usersQuery
+                .OrderBy(u => u.FirstName)
+                .ThenBy(u => u.LastName)
+                .Take(50)
+                .Select(u => new
+                {
+                    id = u.Id,
+                    name = u.FirstName + " " + u.LastName,
+                    avatar = u.AvatarUrl ?? "/images/default-avatar.png",
+                    isOnline = u.IsOnline
+                })
+                .ToListAsync();
+
+            return Json(new { success = true, users });
+        }
 
 
         // ✅ DTO ها
@@ -926,12 +970,11 @@ namespace OrganizationalMessenger.Web.Controllers
 
                 if (existingReaction != null)
                 {
-                    // ✅ حذف react (toggle)
+                    // ✅ همان ایموجی → toggle (حذف)
                     _context.MessageReactions.Remove(existingReaction);
                     await _context.SaveChangesAsync();
 
                     var updatedReactions = await GetMessageReactions(request.MessageId, userId.Value);
-
                     return Ok(new
                     {
                         success = true,
@@ -943,7 +986,7 @@ namespace OrganizationalMessenger.Web.Controllers
                 }
                 else
                 {
-                    // ✅ حذف تمام reaction های قبلی این کاربر از این پیام
+                    // ✅ ایموجی متفاوت → حذف قبلی + اضافه جدید (در یک عملیات)
                     var oldReactions = await _context.MessageReactions
                         .Where(mr => mr.MessageId == request.MessageId && mr.UserId == userId.Value)
                         .ToListAsync();
@@ -951,7 +994,7 @@ namespace OrganizationalMessenger.Web.Controllers
                     if (oldReactions.Any())
                     {
                         _context.MessageReactions.RemoveRange(oldReactions);
-                        Console.WriteLine($"🗑️ Removed {oldReactions.Count} old reactions from user {userId.Value}");
+                        // ✅ نکته کلیدی: SaveChanges نکن! همه رو یکجا ذخیره کن
                     }
 
                     // ✅ اضافه کردن react جدید
@@ -964,10 +1007,9 @@ namespace OrganizationalMessenger.Web.Controllers
                     };
 
                     _context.MessageReactions.Add(reaction);
-                    await _context.SaveChangesAsync();
+                    await _context.SaveChangesAsync(); // ✅ حذف + اضافه یکجا
 
                     var updatedReactions = await GetMessageReactions(request.MessageId, userId.Value);
-
                     return Ok(new
                     {
                         success = true,

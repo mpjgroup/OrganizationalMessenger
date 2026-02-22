@@ -68,7 +68,6 @@ export function handleReceiveMessage(data) {
 export function handleMessageSent(data) {
     console.log('✅ MessageSent received:', data);
 
-    // ✅ چک کن پیام مربوط به چت فعلی هست
     let isCurrentChat = false;
 
     if (currentChat) {
@@ -87,7 +86,7 @@ export function handleMessageSent(data) {
 
     if (!isCurrentChat) {
         console.log('⚠️ MessageSent is not for current chat, skipping display');
-        loadChats(); // فقط لیست چت‌ها رو آپدیت کن
+        loadChats();
         return;
     }
 
@@ -100,8 +99,10 @@ export function handleMessageSent(data) {
 
     displayMessage(data);
     scrollToBottom();
-}
 
+    // ✅ ریلود لیست چت (برای اضافه شدن مخاطب جدید به لیست افراد)
+    loadChats();
+}
 export function updateMessageStatus(messageId, status, readAt = null) {
     console.log(`🔄 Updating message ${messageId} to ${status}`);
 

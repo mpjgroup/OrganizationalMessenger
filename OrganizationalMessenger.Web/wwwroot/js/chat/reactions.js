@@ -13,7 +13,6 @@ const popularEmojis = [
 export function showReactionPicker(messageId) {
     console.log('😊 Showing reaction picker for message:', messageId);
 
-    // حذف picker قبلی
     const existingPicker = document.getElementById('reactionPicker');
     if (existingPicker) {
         existingPicker.remove();
@@ -41,55 +40,31 @@ export function showReactionPicker(messageId) {
         </div>
     `;
 
-    // ✅ اضافه کردن به BODY
     document.body.appendChild(picker);
 
-    // ✅ محاسبه موقعیت دقیق
     const rect = addBtn.getBoundingClientRect();
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
 
-    // ✅ محاسبه offset بر اساس نوع پیام
-    let offsetX = 0;
-    if (isSent) {
-        // پیام ارسالی: کمی به چپ (20px)
-        offsetX = -20;
-    } else {
-        // پیام دریافتی: کمی به راست (20px)
-        offsetX = 20;
-    }
+    let offsetX = isSent ? -20 : 20;
 
     picker.style.position = 'fixed';
     picker.style.left = (rect.left + (rect.width / 2) + offsetX) + 'px';
     picker.style.top = (rect.top + scrollTop - 8) + 'px';
     picker.style.transform = 'translateX(-50%) translateY(-100%)';
 
-    console.log('📍 Picker positioned:', { left: rect.left, top: rect.top, offsetX });
-
-
-    // Boundary check و adjust
     const chatMainRect = document.querySelector('.chat-main')?.getBoundingClientRect();
     if (chatMainRect) {
         const pickerRect = picker.getBoundingClientRect();
-
-        // اگر از چپ خارج شد
         if (pickerRect.left < chatMainRect.left + 10) {
             picker.style.left = (chatMainRect.left + 20) + 'px';
             picker.style.transform = 'translateX(0%) translateY(-100%)';
         }
-
-        // اگر از راست خارج شد
         if (pickerRect.right > chatMainRect.right - 10) {
             picker.style.left = (chatMainRect.right - pickerRect.width - 40) + 'px';
             picker.style.transform = 'translateX(0%) translateY(-100%)';
         }
     }
 
-
-
-
-
-
-    // Event listeners...
     picker.querySelectorAll('.reaction-emoji-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -99,7 +74,6 @@ export function showReactionPicker(messageId) {
         });
     });
 
-    // بستن با کلیک بیرون
     setTimeout(() => {
         const closePicker = (e) => {
             if (!picker.contains(e.target) && !addBtn.contains(e.target)) {
@@ -109,13 +83,6 @@ export function showReactionPicker(messageId) {
         };
         document.addEventListener('click', closePicker);
     }, 100);
-
-
-
-
-
-
-
 }
 
 
@@ -139,6 +106,7 @@ export async function addOrChangeReaction(messageId, emoji) {
         console.log('📥 Reaction response:', result);
 
         if (result.success) {
+            // ✅ آپدیت فوری UI
             updateReactionsUI(messageId, result.reactions);
 
             if (window.connection?.state === signalR.HubConnectionState.Connected) {
@@ -161,36 +129,25 @@ export async function addOrChangeReaction(messageId, emoji) {
 
 export async function toggleReaction(messageId, emoji) {
     console.log('🔄 Toggle reaction:', messageId, emoji);
-
-    const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
-    if (!messageEl) return;
-
-    const reactionItem = messageEl.querySelector(`.reaction-item[data-emoji="${emoji}"]`);
-    const isMyReaction = reactionItem?.classList.contains('my-reaction');
-
-    if (isMyReaction) {
-        console.log('🗑️ Removing my reaction');
-        await addOrChangeReaction(messageId, emoji);
-    } else {
-        console.log('➕ Adding new reaction (will replace old one)');
-        await addOrChangeReaction(messageId, emoji);
-    }
+    // ✅ ساده شد - مستقیم صدا بزن، سرور تصمیم میگیره
+    await addOrChangeReaction(messageId, emoji);
 }
 
 function updateReactionsUI(messageId, reactions) {
     const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
     if (!messageEl) return;
 
-    const reactionsContainer = messageEl.querySelector('.message-reactions');
+    let reactionsContainer = messageEl.querySelector('.message-reactions');
     if (!reactionsContainer) {
         const messageWrapper = messageEl.querySelector('.message-wrapper');
         if (messageWrapper) {
-            const newContainer = document.createElement('div');
-            newContainer.className = 'message-reactions';
-            messageWrapper.appendChild(newContainer);
-            renderReactions(messageId, reactions, newContainer);
+            reactionsContainer = document.createElement('div');
+            reactionsContainer.className = 'message-reactions';
+            messageWrapper.appendChild(reactionsContainer);
         }
-    } else {
+    }
+
+    if (reactionsContainer) {
         renderReactions(messageId, reactions, reactionsContainer);
     }
 }
@@ -204,7 +161,7 @@ function renderReactions(messageId, reactions, container) {
         `;
         return;
     }
-    
+
     const reactionsItems = reactions.map(r => `
         <div class="reaction-item ${r.hasReacted ? 'my-reaction' : ''}" 
              data-emoji="${r.emoji}"
@@ -221,6 +178,14 @@ function renderReactions(messageId, reactions, container) {
         <i class="far fa-smile"></i>
     </button>
 `;
+}
+
+// ✅ SignalR handler برای reaction از کاربران دیگر
+export function handleMessageReaction(data) {
+    console.log('📥 SignalR MessageReaction:', data);
+    if (data.reactions) {
+        updateReactionsUI(data.messageId, data.reactions);
+    }
 }
 
 window.showReactionPicker = showReactionPicker;
