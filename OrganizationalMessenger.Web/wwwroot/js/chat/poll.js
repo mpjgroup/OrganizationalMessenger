@@ -286,7 +286,12 @@ export function renderPollMessage(poll) {
     if (poll.pollType === 'closed') {
         showResults = isExpired || !poll.isActive;
     } else {
-        showResults = hasVoted || !poll.isActive;
+        // ✅ فیکس: اگه چند انتخابی هست، بعد رأی نتایج رو نشون نده - بذار بازم بتونه انتخاب کنه
+        if (poll.allowMultipleAnswers) {
+            showResults = !poll.isActive;  // فقط وقتی نظرسنجی غیرفعال شده
+        } else {
+            showResults = hasVoted || !poll.isActive;
+        }
     }
 
     const canVote = poll.isActive && !isExpired;
