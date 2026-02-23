@@ -222,15 +222,22 @@ namespace OrganizationalMessenger.Web.Controllers
                         .ToList(),
 
 
-                    // ✅ نظرسنجی
+                    // ✅ نظرسنجی - کامل
                     PollId = m.PollId,
                     Poll = m.Poll != null ? new
                     {
                         id = m.Poll.Id,
                         question = m.Poll.Question,
-                        isActive = m.Poll.IsActive,
+                        // ✅ isActive باید expire رو هم چک کنه
+                        isActive = m.Poll.IsActive && (!m.Poll.ExpiresAt.HasValue || DateTime.Now < m.Poll.ExpiresAt.Value),
                         allowMultipleAnswers = m.Poll.AllowMultipleAnswers,
-                        pollType = m.Poll.IsActive ? "open" : "closed",
+                        // ✅ pollType بر اساس ExpiresAt نه IsActive
+                        pollType = m.Poll.ExpiresAt.HasValue ? "closed" : "open",
+                        createdAt = m.Poll.CreatedAt,
+                        // ✅ expiresAt - این مهمترین فیلد هست!
+                        expiresAt = m.Poll.ExpiresAt.HasValue
+                            ? m.Poll.ExpiresAt.Value.ToString("yyyy-MM-ddTHH:mm:ss")
+                            : (string?)null,
                         options = m.Poll.Options.OrderBy(o => o.DisplayOrder).Select(o => new
                         {
                             id = o.Id,

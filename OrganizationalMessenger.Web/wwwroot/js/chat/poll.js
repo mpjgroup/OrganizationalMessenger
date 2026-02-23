@@ -255,6 +255,8 @@ async function submitPoll(closeDialog) {
     }
 }
 
+
+
 // ✅ نمایش نظرسنجی در پیام‌ها
 export function renderPollMessage(poll) {
     const totalVotes = poll.options.reduce((sum, opt) => sum + (opt.voteCount || 0), 0);
@@ -393,13 +395,6 @@ export function renderPollMessage(poll) {
 
 // ✅ رأی دادن
 window.votePoll = async function (pollId, optionId) {
-    // ✅ قبل از ارسال، expire رو دوباره چک کن (ممکنه صفحه باز مونده باشه)
-    const pollEl = document.querySelector(`.poll-message[data-poll-id="${pollId}"]`);
-    if (pollEl) {
-        // بررسی از data attribute یا API
-        // ساده‌ترین راه: سرور چک میکنه و خطا میده
-    }
-
     try {
         const response = await fetch('/api/Poll/Vote', {
             method: 'POST',
@@ -415,7 +410,7 @@ window.votePoll = async function (pollId, optionId) {
             console.log('✅ Vote submitted');
             updatePollUI(pollId, result.poll);
         } else {
-            // ✅ اگه سرور گفت expire شده، UI رو آپدیت کن
+            // ✅ اگه سرور poll data فرستاد (مثلاً expire شده)، UI آپدیت کن
             if (result.poll) {
                 updatePollUI(pollId, result.poll);
             }
@@ -425,7 +420,6 @@ window.votePoll = async function (pollId, optionId) {
         console.error('❌ Vote error:', error);
     }
 };
-
 function updatePollUI(pollId, pollData) {
     const pollEl = document.querySelector(`.poll-message[data-poll-id="${pollId}"]`);
     if (!pollEl) return;
