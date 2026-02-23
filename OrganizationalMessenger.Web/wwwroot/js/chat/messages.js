@@ -2,6 +2,7 @@
 // Messages - Load, Display, Settings
 // ============================================
 
+import { renderPollMessage } from './poll.js';
 export { scrollToBottom } from './utils.js';
 import {
     currentChat, isLoadingMessages, setIsLoadingMessages, hasMoreMessages, setHasMoreMessages,
@@ -367,14 +368,9 @@ export function displayMessage(msg) {
 
     // ✅ اگه پیام نوع نظرسنجی هست و داده poll داره
     if (msg.poll && msg.pollId) {
-        import('./poll.js').then(module => {
-            const pollContainer = messageEl.querySelector('.poll-placeholder');
-            if (pollContainer) {
-                pollContainer.outerHTML = module.renderPollMessage(msg.poll);
-            }
-        });
-        messageTextHtml = '<div class="poll-placeholder">در حال بارگذاری نظرسنجی...</div>';
-    } else if (hasAttachments) {
+        // ✅ مستقیم render کن - بدون async import
+        messageTextHtml = renderPollMessage(msg.poll);
+    } else if (hasAttachments){
         if (messageContent && !messageContent.startsWith('📎') && !messageContent.startsWith('🎤')) {
             messageTextHtml = `<div class="message-caption" data-editable="true">${linkifyText(messageContent)}</div>`;
         }

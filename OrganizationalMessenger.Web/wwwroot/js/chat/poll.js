@@ -106,12 +106,17 @@ export function showCreatePollDialog() {
             const expirySection = document.getElementById('pollExpirySection');
             if (e.target.value === 'closed') {
                 expirySection.style.display = 'block';
-                // ✅ پیش‌فرض: ۲۴ ساعت بعد
+                // ✅ پیش‌فرض: ۲۴ ساعت بعد - بدون toISOString!
                 const tomorrow = new Date();
                 tomorrow.setDate(tomorrow.getDate() + 1);
-                const defaultDate = tomorrow.toISOString().slice(0, 16);
+                // ✅ فرمت local بدون UTC
+                const pad = (n) => String(n).padStart(2, '0');
+                const defaultDate = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}T${pad(tomorrow.getHours())}:${pad(tomorrow.getMinutes())}`;
                 document.getElementById('pollExpiresAt').value = defaultDate;
-                document.getElementById('pollExpiresAt').min = new Date().toISOString().slice(0, 16);
+                // ✅ min هم local
+                const now = new Date();
+                const minDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+                document.getElementById('pollExpiresAt').min = minDate;
             } else {
                 expirySection.style.display = 'none';
             }
@@ -251,30 +256,44 @@ async function submitPoll(closeDialog) {
 }
 
 // ✅ نمایش نظرسنجی در پیام‌ها
-// ✅ نمایش نظرسنجی در پیام‌ها
 export function renderPollMessage(poll) {
     const totalVotes = poll.options.reduce((sum, opt) => sum + (opt.voteCount || 0), 0);
     const hasVoted = poll.options.some(opt => opt.hasVoted);
 
-    // ✅ تشخیص expire - بدون مشکل timezone
-    const isExpired = poll.expiresAt && new Date(poll.expiresAt) <= new Date();
+    // ✅ parse تاریخ - اضافه کردن "Z" برای جلوگیری از اختلاف مرورگرها
+    // ولی چون سرور local ذخیره میکنه، نباید Z اضافه کنیم
+    // بلکه باید دستی parse کنیم
+    let expiresDate = null;
+    let isExpired = false;
+    if (poll.expiresAt) {
+        // ✅ parse کردن string بدون timezone ambiguity
+        const parts = poll.expiresAt.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):?(\d{2})?/);
+        if (parts) {
+            expiresDate = new Date(
+                parseInt(parts[1]),      // year
+                parseInt(parts[2]) - 1,  // month (0-indexed)
+                parseInt(parts[3]),      // day
+                parseInt(parts[4]),      // hour
+                parseInt(parts[5]),      // minute
+                parseInt(parts[6] || 0)  // second
+            );
+            isExpired = new Date() >= expiresDate;
+        }
+    }
 
     let showResults;
     if (poll.pollType === 'closed') {
-        // بسته: فقط بعد از پایان زمان نتایج نشون بده
         showResults = isExpired || !poll.isActive;
     } else {
-        // باز: بعد از رأی دادن نتایج نشون بده
         showResults = hasVoted || !poll.isActive;
     }
 
     const canVote = poll.isActive && !isExpired;
 
-    // ✅ اطلاعات زمان - همیشه نمایش داده میشه (نه فقط بعد از کلیک)
+    // ✅ اطلاعات زمان
     let timerHtml = '';
-    if (poll.pollType === 'closed' && poll.expiresAt) {
-        const expiresDate = new Date(poll.expiresAt);
-        // ✅ تاریخ شمسی با روز هفته
+    if (poll.pollType === 'closed' && expiresDate) {
+        // ✅ تاریخ شمسی
         const persianDate = expiresDate.toLocaleDateString('fa-IR', {
             weekday: 'long',
             year: 'numeric',
@@ -287,7 +306,6 @@ export function renderPollMessage(poll) {
         });
 
         if (canVote) {
-            // ✅ زمان باقیمانده
             const now = new Date();
             const diff = expiresDate - now;
             const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -326,7 +344,6 @@ export function renderPollMessage(poll) {
         const isSelected = opt.hasVoted;
 
         if (showResults) {
-            // ✅ نمایش نتایج (فقط بعد از expire یا برای باز بعد از رأی)
             return `
                 <div class="poll-result-option ${isSelected ? 'selected' : ''}">
                     <div class="poll-result-bar" style="width: ${percentage}%"></div>
@@ -338,7 +355,6 @@ export function renderPollMessage(poll) {
                 </div>
             `;
         } else {
-            // ✅ دکمه رأی - بدون نمایش درصد
             return `
                 <button class="poll-vote-btn ${isSelected ? 'voted' : ''}" 
                         onclick="${canVote ? `window.votePoll(${poll.id}, ${opt.id})` : ''}">
@@ -348,7 +364,6 @@ export function renderPollMessage(poll) {
         }
     }).join('');
 
-    // ✅ برچسب وضعیت
     let statusBadge = '';
     if (!poll.isActive || isExpired) {
         statusBadge = '<span class="poll-closed-badge"><i class="fas fa-lock"></i> بسته شده</span>';
@@ -376,9 +391,15 @@ export function renderPollMessage(poll) {
     `;
 }
 
-
 // ✅ رأی دادن
-window.votePoll = async function(pollId, optionId) {
+window.votePoll = async function (pollId, optionId) {
+    // ✅ قبل از ارسال، expire رو دوباره چک کن (ممکنه صفحه باز مونده باشه)
+    const pollEl = document.querySelector(`.poll-message[data-poll-id="${pollId}"]`);
+    if (pollEl) {
+        // بررسی از data attribute یا API
+        // ساده‌ترین راه: سرور چک میکنه و خطا میده
+    }
+
     try {
         const response = await fetch('/api/Poll/Vote', {
             method: 'POST',
@@ -392,9 +413,12 @@ window.votePoll = async function(pollId, optionId) {
         const result = await response.json();
         if (result.success) {
             console.log('✅ Vote submitted');
-            // آپدیت UI نظرسنجی
             updatePollUI(pollId, result.poll);
         } else {
+            // ✅ اگه سرور گفت expire شده، UI رو آپدیت کن
+            if (result.poll) {
+                updatePollUI(pollId, result.poll);
+            }
             alert(result.message || 'خطا در ثبت رأی');
         }
     } catch (error) {

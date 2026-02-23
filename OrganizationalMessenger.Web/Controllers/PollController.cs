@@ -105,7 +105,11 @@ namespace OrganizationalMessenger.Web.Controllers
                 return BadRequest(new { success = false, message = "نظرسنجی پایان یافته است" });
 
             if (option.Poll.ExpiresAt.HasValue && DateTime.Now >= option.Poll.ExpiresAt.Value)
-                return BadRequest(new { success = false, message = "مهلت نظرسنجی به پایان رسیده است" });
+            {
+                // ✅ poll data هم برگردون تا UI آپدیت بشه
+                var expiredPoll = await GetPollData(option.PollId, userId.Value);
+                return BadRequest(new { success = false, message = "مهلت نظرسنجی به پایان رسیده است", poll = expiredPoll });
+            }
             // چک رأی تکراری
             var existingVote = await _context.PollVotes
                 .FirstOrDefaultAsync(v => v.PollOptionId == request.OptionId && v.UserId == userId.Value);
