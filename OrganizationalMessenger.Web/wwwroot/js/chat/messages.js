@@ -356,28 +356,36 @@ export function displayMessage(msg) {
     }
 
     // ✅ متغیرها تعریف شوند
+    // ✅ متغیرها تعریف شوند
     let messageTextHtml = '';
     const messageContent = msg.content || msg.messageText || '';
 
+    // ✅ فایل‌ها/ضمائم
+    let attachmentsHtml = '';
+    if (msg.attachments && msg.attachments.length > 0) {
+        attachmentsHtml = msg.attachments
+            .map(file => renderFileAttachment(file, isSent))
+            .join('');
+    }
+
     // ✅ اگه پیام نوع نظرسنجی هست و داده poll داره
-    if (msg.poll && msg.pollId)     // ✅ اگه پیام نوع نظرسنجی هست و داده poll داره
-        if (msg.poll && msg.pollId) {
-            import('./poll.js').then(module => {
-                const pollContainer = messageEl.querySelector('.poll-placeholder');
-                if (pollContainer) {
-                    pollContainer.outerHTML = module.renderPollMessage(msg.poll);
-                }
-            });
-            messageTextHtml = '<div class="poll-placeholder">در حال بارگذاری نظرسنجی...</div>';
-        } else if (hasAttachments) {
-            if (messageContent && !messageContent.startsWith('📎') && !messageContent.startsWith('🎤')) {
-                messageTextHtml = `<div class="message-caption" data-editable="true">${linkifyText(messageContent)}</div>`;
+    if (msg.poll && msg.pollId) {
+        import('./poll.js').then(module => {
+            const pollContainer = messageEl.querySelector('.poll-placeholder');
+            if (pollContainer) {
+                pollContainer.outerHTML = module.renderPollMessage(msg.poll);
             }
-        } else {
-            if (messageContent) {
-                messageTextHtml = `<div class="message-text" data-editable="true">${linkifyText(messageContent)}</div>`;
-            }
+        });
+        messageTextHtml = '<div class="poll-placeholder">در حال بارگذاری نظرسنجی...</div>';
+    } else if (hasAttachments) {
+        if (messageContent && !messageContent.startsWith('📎') && !messageContent.startsWith('🎤')) {
+            messageTextHtml = `<div class="message-caption" data-editable="true">${linkifyText(messageContent)}</div>`;
         }
+    } else {
+        if (messageContent) {
+            messageTextHtml = `<div class="message-text" data-editable="true">${linkifyText(messageContent)}</div>`;
+        }
+    }
 
     const editedBadge = msg.isEdited ? '<span class="edited-badge">ویرایش شده</span>' : '';
 
@@ -424,7 +432,6 @@ export function displayMessage(msg) {
         `;
     }
 
-    // ✅ علامت فوروارد
     // ✅ علامت فوروارد - با تنظیم
     let forwardHtml = '';
     if (msg.forwardedFromMessageId || msg.forwardedFromUserId) {
@@ -451,9 +458,6 @@ export function displayMessage(msg) {
     const isForwarded = !!(msg.forwardedFromMessageId || msg.forwardedFromUserId);
     const messageMenuHtml = createMessageMenu(msg.id, isSent, sentAt, isForwarded);
 
-    let attachmentsHtml = '';
-
-
     messageEl.innerHTML = `
         <div class="message-wrapper">
             ${!isConsecutive ? avatarSectionHtml : ''}
@@ -462,7 +466,7 @@ export function displayMessage(msg) {
                     ${forwardHtml}
                     ${replyHtml}
                     ${attachmentsHtml}
-                    ${messageTextHtml}  
+                    ${messageTextHtml}
                     ${statusHtml}
                 </div>
                 ${messageMenuHtml}

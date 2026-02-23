@@ -46,9 +46,9 @@ namespace OrganizationalMessenger.Web.Controllers
                 ChannelId = request.ChannelId,
                 AllowMultipleAnswers = request.AllowMultipleAnswers,
                 IsAnonymous = false,
-                IsActive = true,  // ✅ همیشه فعاله! (بسته هم فعاله تا ExpiresAt)
+                IsActive = true,  // ✅ همیشه فعاله تا ExpiresAt
                 ExpiresAt = request.PollType == "closed" ? request.ExpiresAt : null,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow  // ✅ UTC
             };
 
             _context.Polls.Add(poll);

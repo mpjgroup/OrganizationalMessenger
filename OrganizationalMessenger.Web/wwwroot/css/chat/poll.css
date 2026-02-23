@@ -455,3 +455,44 @@
     border-color: #4CAF50 !important;
     color: #4CAF50 !important;
 }
+
+
+
+.poll-timer-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    margin: 4px 0;
+    background: rgba(33, 150, 243, 0.1);
+    border-radius: 8px;
+    font-size: 12px;
+    color: #64B5F6;
+    flex-wrap: wrap;
+}
+
+    .poll-timer-info i {
+        font-size: 14px;
+    }
+
+    .poll-timer-info.expired {
+        background: rgba(244, 67, 54, 0.1);
+        color: #EF5350;
+    }
+
+.poll-remaining {
+    color: #FFC107;
+    font-weight: 600;
+}
+
+.poll-timer-info.expired .poll-remaining {
+    display: none;
+}
+
+.poll-closed-badge {
+    background: rgba(244, 67, 54, 0.2);
+    color: #EF5350;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+}
