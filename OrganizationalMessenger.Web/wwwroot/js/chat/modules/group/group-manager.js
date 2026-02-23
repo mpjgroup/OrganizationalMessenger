@@ -46,44 +46,14 @@ export class GroupManager {
 
     // ✅ نمایش/مخفی کردن دکمه
     toggleCreateGroupButton() {
-        const createGroupBtn = document.getElementById('createGroupBtn');
-        if (!createGroupBtn) {
-            console.warn('⚠️ createGroupBtn not found');
-            return;
-        }
-
-        console.log('🔧 Toggling button, canCreateGroup:', this.canCreateGroup);
-
-        if (this.canCreateGroup) {
-            createGroupBtn.style.display = 'flex'; // ✅ برای menu item
-            createGroupBtn.style.visibility = 'visible';
-            createGroupBtn.classList.remove('hidden');
-        } else {
-            createGroupBtn.style.display = 'none';
-            createGroupBtn.style.visibility = 'hidden';
-            createGroupBtn.classList.add('hidden');
-        }
+        // ✅ مدیریت از طری�� initCreateButton
+        console.log('🔧 toggleCreateGroupButton - managed by popup');
     }
 
     setupEventListeners() {
-        const createGroupBtn = document.getElementById('createGroupBtn');
-        console.log('🔍 setupEventListeners - canCreateGroup:', this.canCreateGroup);
-
-        if (createGroupBtn) {
-            // ✅ همیشه event listener ست کن، شرط را در click handler بگذار
-            createGroupBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); // ✅ مهم!
-                if (this.canCreateGroup) {
-                    console.log('✅ Permission granted, opening dialog');
-                    this.showCreateDialog();
-                } else {
-                    console.log('❌ No permission');
-                    // اختیاری: toast یا alert
-                }
-            });
-        } else {
-            console.warn('⚠️ createGroupBtn not found in setupEventListeners');
-        }
+        // ✅ دیگه دکمه createGroupBtn در HTML نیست
+        // پاپ‌آپ از طریق initCreateButton مدیریت میشه
+        console.log('🔍 Group setupEventListeners - managed by popup');
     }
 
    

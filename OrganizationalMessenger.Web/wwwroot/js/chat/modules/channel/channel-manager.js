@@ -46,40 +46,14 @@ export class ChannelManager {
 
     // ✅ نمایش/مخفی کردن دکمه کانال
     toggleCreateChannelButton() {
-        const createChannelBtn = document.getElementById('createChannelBtn');
-        if (!createChannelBtn) {
-            console.warn('⚠️ createChannelBtn not found');
-            return;
-        }
-
-        console.log('🔧 Toggling channel button, canCreateChannel:', this.canCreateChannel);
-
-        if (this.canCreateChannel) {
-            createChannelBtn.style.display = 'flex';
-            createChannelBtn.style.visibility = 'visible';
-            createChannelBtn.classList.remove('hidden');
-        } else {
-            createChannelBtn.style.display = 'none';
-            createChannelBtn.style.visibility = 'hidden';
-            createChannelBtn.classList.add('hidden');
-        }
+        // ✅ مدیریت از طریق initCreateButton
+        console.log('🔧 toggleCreateChannelButton - managed by popup');
     }
 
     setupEventListeners() {
-        const createChannelBtn = document.getElementById('createChannelBtn');
-        console.log('🔍 Channel setupEventListeners - canCreateChannel:', this.canCreateChannel);
-
-        if (createChannelBtn) {
-            createChannelBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (this.canCreateChannel) {
-                    console.log('✅ Channel permission granted, opening dialog');
-                    this.showCreateDialog();
-                } else {
-                    console.log('❌ No channel permission');
-                }
-            });
-        }
+        // ✅ دیگه دکمه createChannelBtn در HTML نیست
+        // پاپ‌آپ از طریق initCreateButton مدیریت میشه
+        console.log('🔍 Channel setupEventListeners - managed by popup');
     }
 
     // ============================================

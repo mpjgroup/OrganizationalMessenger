@@ -628,7 +628,10 @@ namespace OrganizationalMessenger.Web.Hubs
         // ========================================
         // ✅ گروه - ارسال پیام با فایل
         // ========================================
-        public async Task SendGroupMessageWithFile(int groupId, string messageText, int fileId, int? duration = null)
+        // ========================================
+        // ✅ گروه - ارسال پیام با فایل
+        // ========================================
+        public async Task SendGroupMessageWithFile(int groupId, string messageText, int fileId, int? duration = null, int? replyToMessageId = null)
         {
             var senderId = GetUserId();
             if (senderId == 0) return;
@@ -664,7 +667,8 @@ namespace OrganizationalMessenger.Web.Hubs
                     Type = messageType,
                     SentAt = DateTime.UtcNow,
                     IsDelivered = false,
-                    IsDeleted = false
+                    IsDeleted = false,
+                    ReplyToMessageId = replyToMessageId  // ✅ اضافه شد
                 };
 
                 _context.Messages.Add(message);
@@ -675,6 +679,13 @@ namespace OrganizationalMessenger.Web.Hubs
 
                 await _context.Entry(message).Collection(m => m.Attachments).LoadAsync();
                 await _context.Entry(message).Reference(m => m.Sender).LoadAsync();
+                // ✅ لود ریپلای
+                if (replyToMessageId.HasValue)
+                {
+                    await _context.Entry(message).Reference(m => m.ReplyToMessage).LoadAsync();
+                    if (message.ReplyToMessage != null)
+                        await _context.Entry(message.ReplyToMessage).Reference(m => m.Sender).LoadAsync();
+                }
 
                 var messageDto = new
                 {
@@ -690,6 +701,12 @@ namespace OrganizationalMessenger.Web.Hubs
                     sentAt = message.SentAt.ToString("o"),
                     isDelivered = false,
                     isRead = false,
+                    // ✅ اطلاعات ریپلای اضافه شد
+                    replyToMessageId = message.ReplyToMessageId,
+                    replyToText = message.ReplyToMessage?.Content,
+                    replyToSenderName = message.ReplyToMessage != null
+                        ? $"{message.ReplyToMessage.Sender.FirstName} {message.ReplyToMessage.Sender.LastName}"
+                        : null,
                     attachments = message.Attachments.Select(f => new
                     {
                         id = f.Id,
@@ -708,7 +725,6 @@ namespace OrganizationalMessenger.Web.Hubs
                     }).ToList()
                 };
 
-                // ارسال به اعضای گروه
                 var memberIds = await _context.UserGroups
                     .Where(gm => gm.GroupId == groupId)
                     .Select(gm => gm.UserId)
@@ -734,7 +750,6 @@ namespace OrganizationalMessenger.Web.Hubs
                 await Clients.Caller.SendAsync("Error", $"خطا: {ex.Message}");
             }
         }
-
         // ========================================
         // ✅ کانال - ارسال پیام متنی
         // ========================================
@@ -832,7 +847,10 @@ namespace OrganizationalMessenger.Web.Hubs
         // ========================================
         // ✅ کانال - ارسال پیام با فایل
         // ========================================
-        public async Task SendChannelMessageWithFile(int channelId, string messageText, int fileId, int? duration = null)
+        // ========================================
+        // ✅ کانال - ارسال پیام با فایل
+        // ========================================
+        public async Task SendChannelMessageWithFile(int channelId, string messageText, int fileId, int? duration = null, int? replyToMessageId = null)
         {
             var senderId = GetUserId();
             if (senderId == 0) return;
@@ -869,7 +887,8 @@ namespace OrganizationalMessenger.Web.Hubs
                     Type = messageType,
                     SentAt = DateTime.UtcNow,
                     IsDelivered = false,
-                    IsDeleted = false
+                    IsDeleted = false,
+                    ReplyToMessageId = replyToMessageId  // ✅ اضافه شد
                 };
 
                 _context.Messages.Add(message);
@@ -880,6 +899,13 @@ namespace OrganizationalMessenger.Web.Hubs
 
                 await _context.Entry(message).Collection(m => m.Attachments).LoadAsync();
                 await _context.Entry(message).Reference(m => m.Sender).LoadAsync();
+                // ✅ لود ریپلای
+                if (replyToMessageId.HasValue)
+                {
+                    await _context.Entry(message).Reference(m => m.ReplyToMessage).LoadAsync();
+                    if (message.ReplyToMessage != null)
+                        await _context.Entry(message.ReplyToMessage).Reference(m => m.Sender).LoadAsync();
+                }
 
                 var messageDto = new
                 {
@@ -895,6 +921,12 @@ namespace OrganizationalMessenger.Web.Hubs
                     sentAt = message.SentAt.ToString("o"),
                     isDelivered = false,
                     isRead = false,
+                    // ✅ اطلاعات ریپلای اضافه شد
+                    replyToMessageId = message.ReplyToMessageId,
+                    replyToText = message.ReplyToMessage?.Content,
+                    replyToSenderName = message.ReplyToMessage != null
+                        ? $"{message.ReplyToMessage.Sender.FirstName} {message.ReplyToMessage.Sender.LastName}"
+                        : null,
                     attachments = message.Attachments.Select(f => new
                     {
                         id = f.Id,
@@ -938,7 +970,6 @@ namespace OrganizationalMessenger.Web.Hubs
                 await Clients.Caller.SendAsync("Error", $"خطا: {ex.Message}");
             }
         }
-
 
 
         // ✅ نوتیفیکیشن ایجاد نظرسنجی
