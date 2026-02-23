@@ -43,7 +43,11 @@ export function showCreatePollDialog() {
                         </label>
                     </div>
                 </div>
-
+                 <div class="poll-expiry-section" id="pollExpirySection" style="display: none;">
+                    <label class="poll-expiry-label">تاریخ و ساعت پایان نظرسنجی:</label>
+                    <input type="datetime-local" id="pollExpiresAt" class="poll-expiry-input" />
+                    <span class="poll-expiry-hint">کاربران تا این زمان می‌توانند رأی بدهند. بعد از آن نتایج نمایش داده می‌شود.</span>
+                </div>
                 <!-- چند انتخابی -->
                 <div class="poll-multi-section">
                     <label class="poll-checkbox-label">
@@ -95,6 +99,26 @@ export function showCreatePollDialog() {
         dialog.remove();
         document.body.style.overflow = 'auto';
     };
+
+    // ✅ نمایش/مخفی کردن فیلد تاریخ بر اساس نوع نظرسنجی
+    document.querySelectorAll('input[name="pollType"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const expirySection = document.getElementById('pollExpirySection');
+            if (e.target.value === 'closed') {
+                expirySection.style.display = 'block';
+                // ✅ پیش‌فرض: ۲۴ ساعت بعد
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const defaultDate = tomorrow.toISOString().slice(0, 16);
+                document.getElementById('pollExpiresAt').value = defaultDate;
+                document.getElementById('pollExpiresAt').min = new Date().toISOString().slice(0, 16);
+            } else {
+                expirySection.style.display = 'none';
+            }
+        });
+    });
+
+
 
     document.getElementById('closePollDialog').addEventListener('click', closeDialog);
     document.getElementById('cancelPollBtn').addEventListener('click', closeDialog);
@@ -163,6 +187,17 @@ async function submitPoll(closeDialog) {
     const pollType = document.querySelector('input[name="pollType"]:checked')?.value || 'open';
     const allowMultiple = document.getElementById('pollAllowMultiple')?.checked || false;
 
+    // ✅ تاریخ پایان
+    let expiresAt = null;
+    if (pollType === 'closed') {
+        const expiresAtInput = document.getElementById('pollExpiresAt')?.value;
+        if (!expiresAtInput) {
+            alert('لطفاً تاریخ پایان نظرسنجی را مشخص کنید');
+            return;
+        }
+        expiresAt = new Date(expiresAtInput).toISOString();
+    }
+
     try {
         const response = await fetch('/api/Poll/Create', {
             method: 'POST',
@@ -176,7 +211,8 @@ async function submitPoll(closeDialog) {
                 pollType,
                 allowMultipleAnswers: allowMultiple,
                 groupId: currentChat.type === 'group' ? currentChat.id : null,
-                channelId: currentChat.type === 'channel' ? currentChat.id : null
+                channelId: currentChat.type === 'channel' ? currentChat.id : null,
+                expiresAt: expiresAt  // ✅ اضافه شد
             })
         });
 
@@ -185,14 +221,22 @@ async function submitPoll(closeDialog) {
             console.log('✅ Poll created:', result.pollId);
             closeDialog();
 
-            // ✅ پیام‌ها رو دوباره لود کن تا نظرسنجی نمایش داده بشه
-            import('./messages.js').then(module => {
-                module.loadMessages(false);
+            // ✅ پیام‌ها رو دوباره لود کن و بعد اسکرول به پایین
+            import('./messages.js').then(async module => {
+                await module.loadMessages(false);
+                // ✅ اسکرول به آخرین پیام (نظرسنجی)
+                import('./utils.js').then(utils => {
+                    utils.scrollToBottom();
+                });
             });
 
             // ✅ نوتیف SignalR هم بفرست
             if (window.connection?.state === signalR.HubConnectionState.Connected) {
-                await window.connection.invoke("NotifyPollCreated", result.pollId, currentChat.id, currentChat.type);
+                try {
+                    await window.connection.invoke("NotifyPollCreated", result.pollId, currentChat.id, currentChat.type);
+                } catch (e) {
+                    console.warn('⚠️ NotifyPollCreated failed:', e);
+                }
             }
         } else {
             alert(result.message || 'خطا در ایجاد نظرسنجی');
@@ -207,7 +251,32 @@ async function submitPoll(closeDialog) {
 export function renderPollMessage(poll) {
     const totalVotes = poll.options.reduce((sum, opt) => sum + (opt.voteCount || 0), 0);
     const hasVoted = poll.options.some(opt => opt.hasVoted);
-    const showResults = poll.pollType === 'open' || hasVoted || !poll.isActive;
+
+    // ✅ منطق جدید نمایش نتایج:
+    // - باز (open): بعد از رأی دادن نتایج نشون داده میشه
+    // - بسته (closed): فقط بعد از پایان زمان نتایج نشون داده میشه
+    const isExpired = poll.expiresAt && new Date() >= new Date(poll.expiresAt);
+    let showResults;
+
+    if (poll.pollType === 'closed') {
+        // نظرسنجی بسته: نتایج فقط بعد از پایان
+        showResults = isExpired || !poll.isActive;
+    } else {
+        // نظرسنجی باز: بعد از رأی دادن نتایج نشون داده میشه
+        showResults = hasVoted || !poll.isActive;
+    }
+
+    // ✅ آیا میتونه رأی بده؟
+    const canVote = poll.isActive && !isExpired;
+
+    // ✅ زمان باقیمانده برای نظرسنجی بسته
+    let timerHtml = '';
+    if (poll.pollType === 'closed' && poll.expiresAt && canVote) {
+        const expiresDate = new Date(poll.expiresAt);
+        const persianExpiry = expiresDate.toLocaleDateString('fa-IR') + ' ' +
+            expiresDate.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
+        timerHtml = `<span class="poll-timer"><i class="fas fa-clock"></i> مهلت: ${persianExpiry}</span>`;
+    }
 
     const optionsHtml = poll.options.map(opt => {
         const percentage = totalVotes > 0 ? Math.round((opt.voteCount / totalVotes) * 100) : 0;
@@ -217,7 +286,7 @@ export function renderPollMessage(poll) {
             return `
                 <div class="poll-result-option ${isSelected ? 'selected' : ''}" 
                      data-poll-id="${poll.id}" data-option-id="${opt.id}"
-                     onclick="${poll.isActive ? `window.votePoll(${poll.id}, ${opt.id})` : ''}">
+                     onclick="${canVote ? `window.votePoll(${poll.id}, ${opt.id})` : ''}">
                     <div class="poll-result-bar" style="width: ${percentage}%"></div>
                     <div class="poll-result-content">
                         <span class="poll-option-text">${escapeHtml(opt.text)}</span>
@@ -227,20 +296,30 @@ export function renderPollMessage(poll) {
                 </div>
             `;
         } else {
+            // ✅ نظرسنجی بسته: دکمه رأی بدون نمایش نتایج + نشون بده رأی دادی
             return `
-                <button class="poll-vote-btn" onclick="window.votePoll(${poll.id}, ${opt.id})">
-                    ${escapeHtml(opt.text)}
+                <button class="poll-vote-btn ${isSelected ? 'voted' : ''}" 
+                        onclick="${canVote ? `window.votePoll(${poll.id}, ${opt.id})` : ''}">
+                    ${isSelected ? '<i class="fas fa-check"></i> ' : ''}${escapeHtml(opt.text)}
                 </button>
             `;
         }
     }).join('');
+
+    // ✅ برچسب وضعیت
+    let statusBadge = '';
+    if (!poll.isActive || isExpired) {
+        statusBadge = '<span class="poll-closed-badge">پایان یافته</span>';
+    } else if (poll.pollType === 'closed') {
+        statusBadge = '<span class="poll-timed-badge">زمان‌دار</span>';
+    }
 
     return `
         <div class="poll-message" data-poll-id="${poll.id}">
             <div class="poll-header">
                 <i class="fas fa-poll"></i>
                 <span class="poll-question">${escapeHtml(poll.question)}</span>
-                ${!poll.isActive ? '<span class="poll-closed-badge">پایان یافته</span>' : ''}
+                ${statusBadge}
             </div>
             <div class="poll-options">
                 ${optionsHtml}
@@ -248,11 +327,12 @@ export function renderPollMessage(poll) {
             <div class="poll-footer">
                 <span class="poll-total-votes">${totalVotes} رأی</span>
                 ${poll.allowMultipleAnswers ? '<span class="poll-multi-badge">چند انتخابی</span>' : ''}
+                ${timerHtml}
+                ${hasVoted && poll.pollType === 'closed' && !showResults ? '<span class="poll-voted-badge"><i class="fas fa-check-circle"></i> رأی شما ثبت شد</span>' : ''}
             </div>
         </div>
     `;
 }
-
 // ✅ رأی دادن
 window.votePoll = async function(pollId, optionId) {
     try {

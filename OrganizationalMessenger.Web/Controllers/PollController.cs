@@ -34,6 +34,10 @@ namespace OrganizationalMessenger.Web.Controllers
             if (request.Options == null || request.Options.Count < 2)
                 return BadRequest(new { success = false, message = "حداقل ۲ گزینه لازم است" });
 
+            // ✅ نظرسنجی بسته باید تاریخ پایان داشته باشه
+            if (request.PollType == "closed" && !request.ExpiresAt.HasValue)
+                return BadRequest(new { success = false, message = "لطفاً تاریخ پایان نظرسنجی را مشخص کنید" });
+
             var poll = new Poll
             {
                 Question = request.Question.Trim(),
@@ -42,7 +46,8 @@ namespace OrganizationalMessenger.Web.Controllers
                 ChannelId = request.ChannelId,
                 AllowMultipleAnswers = request.AllowMultipleAnswers,
                 IsAnonymous = false,
-                IsActive = request.PollType != "closed",
+                IsActive = true,  // ✅ همیشه فعاله! (بسته هم فعاله تا ExpiresAt)
+                ExpiresAt = request.PollType == "closed" ? request.ExpiresAt : null,
                 CreatedAt = DateTime.Now
             };
 
@@ -149,6 +154,8 @@ namespace OrganizationalMessenger.Web.Controllers
             return Ok(new { success = true, poll });
         }
 
+
+
         private async Task<object?> GetPollData(int pollId, int userId)
         {
             var poll = await _context.Polls
@@ -159,14 +166,22 @@ namespace OrganizationalMessenger.Web.Controllers
 
             if (poll == null) return null;
 
+            // ✅ چک ExpiresAt - اگه زمان گذشته، غیرفعال کن
+            bool isExpired = poll.ExpiresAt.HasValue && DateTime.Now >= poll.ExpiresAt.Value;
+            bool isActive = poll.IsActive && !isExpired;
+
+            // ✅ نوع: اگه ExpiresAt داره → بسته (closed)
+            string pollType = poll.ExpiresAt.HasValue ? "closed" : "open";
+
             return new
             {
                 id = poll.Id,
                 question = poll.Question,
-                isActive = poll.IsActive,
+                isActive = isActive,
                 allowMultipleAnswers = poll.AllowMultipleAnswers,
-                pollType = poll.IsActive ? "open" : "closed",
+                pollType = pollType,
                 createdAt = poll.CreatedAt,
+                expiresAt = poll.ExpiresAt,  // ✅ اضافه شد
                 options = poll.Options.OrderBy(o => o.DisplayOrder).Select(o => new
                 {
                     id = o.Id,
@@ -183,6 +198,8 @@ namespace OrganizationalMessenger.Web.Controllers
             };
         }
 
+
+
         private int? GetCurrentUserId()
         {
             var claim = User.FindFirst(ClaimTypes.NameIdentifier);
@@ -198,6 +215,8 @@ namespace OrganizationalMessenger.Web.Controllers
         public bool AllowMultipleAnswers { get; set; }
         public int? GroupId { get; set; }
         public int? ChannelId { get; set; }
+        public DateTime? ExpiresAt { get; set; }  // ✅ اضافه شد
+
     }
 
     public class VotePollRequest

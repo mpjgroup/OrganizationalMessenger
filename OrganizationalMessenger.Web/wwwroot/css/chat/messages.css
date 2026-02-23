@@ -585,3 +585,24 @@
     color: #9ca3af;
     padding: 20px;
 }
+
+
+.message-link {
+    color: #4FC3F7;
+    text-decoration: underline;
+    word-break: break-all;
+    cursor: pointer;
+}
+
+    .message-link:hover {
+        color: #81D4FA;
+        text-decoration: underline;
+    }
+/* برای پیام‌های ارسالی */
+.message.sent .message-link {
+    color: #E1F5FE;
+}
+
+    .message.sent .message-link:hover {
+        color: #fff;
+    }

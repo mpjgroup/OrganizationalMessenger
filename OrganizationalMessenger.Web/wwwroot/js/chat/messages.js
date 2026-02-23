@@ -279,6 +279,18 @@ export async function loadMessages(append = false) {
     }
 }
 
+
+// ✅ تبدیل URL ها به لینک قابل کلیک
+function linkifyText(text) {
+    if (!text) return '';
+    // ابتدا escapeHtml و بعد لینک‌سازی
+    const escaped = escapeHtml(text);
+    // ✅ regex برای تشخیص URL
+    const urlPattern = /(https?:\/\/[^\s<>"']+)/g;
+    return escaped.replace(urlPattern, '<a href="$1" target="_blank" rel="noopener noreferrer" class="message-link">$1</a>');
+}
+
+
 export function displayMessage(msg) {
     console.log(`📩 Displaying message:`, {
         id: msg.id,
@@ -348,24 +360,24 @@ export function displayMessage(msg) {
     const messageContent = msg.content || msg.messageText || '';
 
     // ✅ اگه پیام نوع نظرسنجی هست و داده poll داره
-    if (msg.poll && msg.pollId) {
-        // import renderPollMessage و نمایش نظرسنجی
-        import('./poll.js').then(module => {
-            const pollContainer = messageEl.querySelector('.poll-placeholder');
-            if (pollContainer) {
-                pollContainer.outerHTML = module.renderPollMessage(msg.poll);
+    if (msg.poll && msg.pollId)     // ✅ اگه پیام نوع نظرسنجی هست و داده poll داره
+        if (msg.poll && msg.pollId) {
+            import('./poll.js').then(module => {
+                const pollContainer = messageEl.querySelector('.poll-placeholder');
+                if (pollContainer) {
+                    pollContainer.outerHTML = module.renderPollMessage(msg.poll);
+                }
+            });
+            messageTextHtml = '<div class="poll-placeholder">در حال بارگذاری نظرسنجی...</div>';
+        } else if (hasAttachments) {
+            if (messageContent && !messageContent.startsWith('📎') && !messageContent.startsWith('🎤')) {
+                messageTextHtml = `<div class="message-caption" data-editable="true">${linkifyText(messageContent)}</div>`;
             }
-        });
-        messageTextHtml = '<div class="poll-placeholder">در حال بارگذاری نظرسنجی...</div>';
-    } else if (hasAttachments) {
-        if (messageContent && !messageContent.startsWith('📎') && !messageContent.startsWith('🎤')) {
-            messageTextHtml = `<div class="message-caption" data-editable="true">${escapeHtml(messageContent)}</div>`;
+        } else {
+            if (messageContent) {
+                messageTextHtml = `<div class="message-text" data-editable="true">${linkifyText(messageContent)}</div>`;
+            }
         }
-    } else {
-        if (messageContent) {
-            messageTextHtml = `<div class="message-text" data-editable="true">${escapeHtml(messageContent)}</div>`;
-        }
-    }
 
     const editedBadge = msg.isEdited ? '<span class="edited-badge">ویرایش شده</span>' : '';
 
