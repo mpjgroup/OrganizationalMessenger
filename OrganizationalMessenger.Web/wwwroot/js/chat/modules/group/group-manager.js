@@ -19,6 +19,11 @@ export class GroupManager {
 
         // بعد event listener ها را ست کن
         this.setupEventListeners();
+        // در انتهای init() متد GroupManager:
+        window.canCreateGroup = this.canCreateGroup;
+        if (window.initCreateButton) window.initCreateButton();
+
+
     }
 
     // ✅ چک کردن دسترسی
@@ -665,5 +670,8 @@ export class GroupManager {
 
 const groupManager = new GroupManager();
 window.groupManager = groupManager;
+
+
+
 
 console.log('✅ group-manager.js loaded');

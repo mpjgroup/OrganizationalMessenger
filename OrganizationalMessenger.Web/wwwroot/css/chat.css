@@ -25,6 +25,8 @@
 @import url('./chat/responsive.css');
 @import url('./chat/reactions.css');
 @import url('./chat/poll.css');
+@import url('./chat/create-popup.css');
+@import url('./chat/reply-thumbnail.css');
 
 @import url('./chat/modules/group-channel.css');
 

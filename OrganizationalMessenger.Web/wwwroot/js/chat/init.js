@@ -33,7 +33,7 @@ export async function initChat() {
 
     setupEventListeners();
     setupScrollListener();
-    setupCreateMenu();
+    initCreateButton();
     requestNotificationPermission(); // ✅ درخواست مجوز نوتیفیکیشن
 
     window.addEventListener('focus', function () {
@@ -217,27 +217,97 @@ async function setupHeaderEventListeners() {
     console.log('✅ Header event listeners attached');
 }
 
-function setupCreateMenu() {
-    const createMenuBtn = document.getElementById('createMenuBtn');
-    const createMenu = document.getElementById('createMenu');
+function initCreateButton() {
+    const createBtn = document.getElementById('createMenuBtn');
+    if (!createBtn) return;
 
-    if (createMenuBtn && createMenu) {
-        createMenuBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const isVisible = createMenu.style.display === 'block';
-            createMenu.style.display = isVisible ? 'none' : 'block';
-        });
+    const canGroup = window.canCreateGroup === true;
+    const canChannel = window.canCreateChannel === true;
 
-        document.addEventListener('click', (e) => {
-            if (!createMenu.contains(e.target) && e.target !== createMenuBtn) {
-                createMenu.style.display = 'none';
-            }
-        });
-
-        console.log('✅ Create menu initialized');
+    // اگه هیچ دسترسی نداره، دکمه مخفی بمونه
+    if (!canGroup && !canChannel) {
+        createBtn.style.display = 'none';
+        return;
     }
+
+    createBtn.style.display = '';
+
+    createBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+
+        // اگه فقط یکی دسترسی داره، مستقیم بره
+        if (canGroup && !canChannel) {
+            // مستقیم گروه
+            window.groupManager?.showCreateDialog();
+            return;
+        }
+        if (!canGroup && canChannel) {
+            // مستقیم کانال
+            window.channelManager?.showCreateDialog();
+            return;
+        }
+
+        // هر دو دسترسی → پاپ‌آپ
+        showCreatePopup();
+    });
 }
 
+function showCreatePopup() {
+    // حذف پاپ‌آپ قبلی
+    document.querySelector('.create-popup-overlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'create-popup-overlay';
+    overlay.innerHTML = `
+        <div class="create-popup">
+            <div class="create-popup-header">
+                <h3><i class="fas fa-plus-circle"></i> ایجاد جدید</h3>
+                <button class="create-popup-close">✕</button>
+            </div>
+            <div class="create-popup-body">
+                <button class="create-popup-option" id="popupCreateGroup">
+                    <div class="create-popup-icon group">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="create-popup-info">
+                        <strong>گروه جدید</strong>
+                        <span>ایجاد یک گروه برای گفتگو</span>
+                    </div>
+                </button>
+                <button class="create-popup-option" id="popupCreateChannel">
+                    <div class="create-popup-icon channel">
+                        <i class="fas fa-bullhorn"></i>
+                    </div>
+                    <div class="create-popup-info">
+                        <strong>کانال جدید</strong>
+                        <span>ایجاد یک کانال برای انتشار</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // بستن
+    overlay.querySelector('.create-popup-close').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+    // گروه
+    document.getElementById('popupCreateGroup').addEventListener('click', () => {
+        overlay.remove();
+        window.groupManager?.showCreateDialog();
+    });
+
+    // کانال
+    document.getElementById('popupCreateChannel').addEventListener('click', () => {
+        overlay.remove();
+        window.channelManager?.showCreateDialog();
+    });
+}
+
+// بعد از init شدن GroupManager و ChannelManager صدا بزن
+window.initCreateButton = initCreateButton;
 
 
 

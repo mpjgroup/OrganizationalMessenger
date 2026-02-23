@@ -3,8 +3,10 @@
 // ============================================
 
 import { getCsrfToken, escapeHtml, formatFileSize } from './utils.js';
-import { currentChat } from './variables.js';
+import { currentChat, replyingToMessage, setReplyingToMessage } from './variables.js';
 import { scrollToBottom } from './utils.js';
+
+
 
 export async function handleFileSelect(e) {
     const files = e.target.files;
@@ -173,9 +175,11 @@ async function sendFileViaSignalR(file, caption = '') {
     }
 
     const messageText = caption || `📎 ${file.originalFileName}`;
+    // ✅ replyId رو بگیر
+    const replyId = replyingToMessage?.id || null;
 
     try {
-        console.log('📤 Sending file via SignalR...');
+        console.log('📤 Sending file via SignalR... replyTo:', replyId);
 
         if (currentChat.type === 'private') {
             await window.connection.invoke(
@@ -183,7 +187,8 @@ async function sendFileViaSignalR(file, caption = '') {
                 currentChat.id,
                 messageText,
                 file.id,
-                null // duration
+                null, // duration
+                replyId  // ✅ پارامتر ۵ - ریپلای
             );
         } else if (currentChat.type === 'group') {
             await window.connection.invoke(
@@ -191,7 +196,8 @@ async function sendFileViaSignalR(file, caption = '') {
                 currentChat.id,
                 messageText,
                 file.id,
-                null
+                null,
+                replyId  // ✅ ریپلای
             );
         } else if (currentChat.type === 'channel') {
             await window.connection.invoke(
@@ -199,18 +205,21 @@ async function sendFileViaSignalR(file, caption = '') {
                 currentChat.id,
                 messageText,
                 file.id,
-                null
+                null,
+                replyId  // ✅ ریپلای
             );
         }
 
         console.log('✅ File sent via SignalR');
+        // ✅ ریپلای رو پاک کن
+        setReplyingToMessage(null);
+        document.getElementById('replyPreview')?.remove();
         scrollToBottom();
     } catch (error) {
         console.error('❌ Send file error:', error);
         alert('خطا در ارسال فایل');
     }
 }
-
 function getMessageType(fileType) {
     const typeMap = {
         'Image': 1,

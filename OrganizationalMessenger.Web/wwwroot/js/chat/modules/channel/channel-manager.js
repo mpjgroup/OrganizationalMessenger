@@ -19,6 +19,11 @@ export class ChannelManager {
 
         // بعد event listener ها را ست کن
         this.setupEventListeners();
+
+
+        // در انتهای init() متد ChannelManager:
+        window.canCreateChannel = this.canCreateChannel;
+        if (window.initCreateButton) window.initCreateButton();
     }
 
     // ✅ چک کردن دسترسی کانال

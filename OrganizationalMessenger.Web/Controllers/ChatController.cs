@@ -66,11 +66,31 @@ namespace OrganizationalMessenger.Web.Controllers
             return Json(chats);
         }
 
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null) return Unauthorized();
+
+            var users = await _context.Users
+                .Where(u => u.Id != userId.Value && u.IsActive)
+                .OrderBy(u => u.FirstName)
+                .ThenBy(u => u.LastName)
+                .Select(u => new
+                {
+                    id = u.Id,
+                    name = $"{u.FirstName} {u.LastName}",
+                    avatar = u.AvatarUrl ?? "/images/default-avatar.png",
+                    type = "private"
+                })
+                .ToListAsync();
+
+            return Json(users);
+        }
+
         // دریافت پیامهای یک چت
         // دریافت پیامهای یک چت - با Pagination
-
-
-
         [HttpGet]
         public async Task<IActionResult> GetMessages(
                 int? userId,
@@ -174,11 +194,20 @@ namespace OrganizationalMessenger.Web.Controllers
                             .Where(r => r.UserId == currentUserId.Value)
                             .Select(r => (DateTime?)r.ReadAt)
                             .FirstOrDefault(),
-                    ReplyToMessageId = m.ReplyToMessageId,
-                    ReplyToText = m.ReplyToMessage != null ? m.ReplyToMessage.Content : null,
-                    ReplyToSenderName = m.ReplyToMessage != null
-                        ? $"{m.ReplyToMessage.Sender.FirstName} {m.ReplyToMessage.Sender.LastName}"
-                        : null,
+                    replyToMessageId = m.ReplyToMessageId,
+                    replyToText = m.ReplyToMessage != null ? m.ReplyToMessage.Content : null,
+                    replyToSenderName = m.ReplyToMessage != null
+                    ? m.ReplyToMessage.Sender.FirstName + " " + m.ReplyToMessage.Sender.LastName
+                    : null,
+                                    // ✅ اضافه: پرویو فایل ریپلای
+                                    replyToAttachment = m.ReplyToMessage != null && m.ReplyToMessage.Attachments.Any()
+                    ? new
+                    {
+                        fileUrl = m.ReplyToMessage.Attachments.First().FileUrl,
+                        fileType = m.ReplyToMessage.Attachments.First().FileType,
+                        originalFileName = m.ReplyToMessage.Attachments.First().OriginalFileName
+                    }
+                    : null,
                     // ✅ اضافه کن - فوروارد
                     ForwardedFromMessageId = m.ForwardedFromMessageId,
                     ForwardedFromUserId = m.ForwardedFromUserId,

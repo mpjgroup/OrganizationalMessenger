@@ -413,14 +413,34 @@ export function displayMessage(msg) {
     }
 
     // ✅ بخش Reply
+    // ✅ بخش Reply - با پرویو فایل
     let replyHtml = '';
-    if (msg.replyToMessageId && msg.replyToText) {
+    if (msg.replyToMessageId && (msg.replyToText || msg.replyToAttachment)) {
+        let replyThumbnail = '';
+        let replyText = msg.replyToText || '';
+
+        if (msg.replyToAttachment) {
+            const att = msg.replyToAttachment;
+            if (att.fileType === 'Image') {
+                replyThumbnail = `<img src="${att.fileUrl}" class="reply-thumbnail" alt="تصویر" />`;
+                if (!replyText || replyText.startsWith('📎')) replyText = '🖼️ تصویر';
+            } else if (att.fileType === 'Video') {
+                replyThumbnail = `<div class="reply-thumbnail reply-video-thumb"><i class="fas fa-play-circle"></i></div>`;
+                if (!replyText || replyText.startsWith('📎')) replyText = '🎥 ویدیو';
+            } else if (att.fileType === 'Audio') {
+                if (!replyText || replyText.startsWith('📎') || replyText.startsWith('🎤')) replyText = '🎵 فایل صوتی';
+            } else {
+                if (!replyText || replyText.startsWith('📎')) replyText = `📄 ${escapeHtml(att.originalFileName)}`;
+            }
+        }
+
         replyHtml = `
             <div class="reply-preview" onclick="scrollToMessage(${msg.replyToMessageId})">
                 <div class="reply-bar"></div>
+                ${replyThumbnail}
                 <div class="reply-content">
                     <span class="reply-sender">${escapeHtml(msg.replyToSenderName || 'کاربر')}</span>
-                    <span class="reply-text">${escapeHtml(msg.replyToText.substring(0, 50))}${msg.replyToText.length > 50 ? '...' : ''}</span>
+                    <span class="reply-text">${escapeHtml(replyText.substring(0, 50))}${replyText.length > 50 ? '...' : ''}</span>
                 </div>
             </div>
         `;

@@ -70,44 +70,36 @@ async function sendFileMessage(file, caption = '') {
     }
 
     const messageText = caption || `📎 ${file.originalFileName}`;
+    const replyId = replyingToMessage?.id || null;  // ✅
 
     try {
-        console.log('📤 Sending file message via SignalR...');
-
         if (currentChat.type === 'private') {
             await window.connection.invoke(
                 "SendPrivateMessageWithFile",
-                currentChat.id,
-                messageText,
-                file.id,
-                null // duration
+                currentChat.id, messageText, file.id, null,
+                replyId  // ✅
             );
         } else if (currentChat.type === 'group') {
             await window.connection.invoke(
                 "SendGroupMessageWithFile",
-                currentChat.id,
-                messageText,
-                file.id,
-                null
+                currentChat.id, messageText, file.id, null,
+                replyId  // ✅
             );
         } else if (currentChat.type === 'channel') {
             await window.connection.invoke(
                 "SendChannelMessageWithFile",
-                currentChat.id,
-                messageText,
-                file.id,
-                null
+                currentChat.id, messageText, file.id, null,
+                replyId  // ✅
             );
         }
 
-        console.log('✅ File message sent via SignalR');
+        setReplyingToMessage(null);
+        document.getElementById('replyPreview')?.remove();
         scrollToBottom();
     } catch (error) {
         console.error('❌ Send file message error:', error);
-        alert('خطا در ارسال فایل');
     }
-}
-function getFileType(fileType) {
+} function getFileType(fileType) {
     const map = { 'Image': 1, 'Video': 2, 'Audio': 3, 'Document': 5 };
     return map[fileType] || 5;
 }

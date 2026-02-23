@@ -23,23 +23,10 @@
                 <span class="user-name">@currentUser?.FullName</span>
                 <img src="@(currentUser?.AvatarUrl ?? "/images/default-avatar.png")" class="logo">
 
-                <!-- ✅ دکمه منوی ایجاد -->
-                <button class="create-btn" id="createMenuBtn" title="ایجاد">
+                <!-- ✅ دکمه + پاپ‌آپ - بجای منوی کشویی -->
+                <button class="create-btn" id="createMenuBtn" title="ایجاد" style="display: none;">
                     <i class="fas fa-plus"></i>
                 </button>
-
-                <!-- ✅ منوی dropdown -->
-                <!-- در create-menu -->
-                <div class="create-menu" id="createMenu" style="display: none;">
-                    <button class="create-menu-item" id="createGroupBtn" style="display: none;">
-                        <i class="fas fa-users"></i>
-                        <span>گروه جدید</span>
-                    </button>
-                    <button class="create-menu-item" id="createChannelBtn" style="display: none;">
-                        <i class="fas fa-bullhorn"></i>
-                        <span>کانال جدید</span>
-                    </button>
-                </div>
 
 
 

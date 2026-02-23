@@ -303,10 +303,11 @@ namespace OrganizationalMessenger.Web.Hubs
         /// ✅ ارسال پیام با فایل
         /// </summary>
         public async Task SendPrivateMessageWithFile(
-            int receiverId,
-            string messageText,
-            int fileId,
-            int? duration = null)
+    int receiverId,
+    string messageText,
+    int fileId,
+    int? duration = null,
+    int? replyToMessageId = null)  
         {
             var senderId = GetUserId();
             if (senderId == 0) return;
@@ -334,7 +335,8 @@ namespace OrganizationalMessenger.Web.Hubs
                     Type = messageType,
                     SentAt = DateTime.UtcNow,
                     IsDelivered = false,
-                    IsDeleted = false
+                    IsDeleted = false,
+                    ReplyToMessageId = replyToMessageId
                 };
 
                 _context.Messages.Add(message);

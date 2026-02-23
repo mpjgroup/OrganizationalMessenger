@@ -177,7 +177,7 @@ function forwardSelectedMessages() {
 function showForwardDialog() {
     console.log('📋 Showing forward dialog');
 
-    fetch('/Chat/GetChats?tab=private')
+    fetch('/Chat/GetAllUsers')
         .then(res => res.json())
         .then(chats => {
             console.log('✅ Loaded', chats.length, 'contacts');
