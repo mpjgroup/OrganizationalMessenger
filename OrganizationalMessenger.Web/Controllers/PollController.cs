@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using OrganizationalMessenger.Domain.Entities;
 using OrganizationalMessenger.Domain.Enums;
 using OrganizationalMessenger.Infrastructure.Data;
+using System.Globalization;
 using System.Security.Claims;
 
 namespace OrganizationalMessenger.Web.Controllers
@@ -28,14 +29,24 @@ namespace OrganizationalMessenger.Web.Controllers
             var userId = GetCurrentUserId();
             if (userId == null) return Unauthorized();
 
-            if (string.IsNullOrWhiteSpace(request.Question))
-                return BadRequest(new { success = false, message = "سوال نظرسنجی الزامی است" });
+            DateTime? expires = null;
+            if (request.PollType == "closed")
+            {
+                if (string.IsNullOrWhiteSpace(request.ExpiresAt))
+                    return BadRequest(new { success = false, message = "لطفاً تاریخ پایان نظرسنجی را مشخص کنید" });
 
-            if (request.Options == null || request.Options.Count < 2)
-                return BadRequest(new { success = false, message = "حداقل ۲ گزینه لازم است" });
+                if (!DateTime.TryParseExact(
+                        request.ExpiresAt,
+                        "yyyy-MM-ddTHH:mm",
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.AssumeLocal,  // یعنی همین زمان را لوکال در نظر بگیر
+                        out var exp))
+                {
+                    return BadRequest(new { success = false, message = "فرمت تاریخ پایان معتبر نیست" });
+                }
 
-            if (request.PollType == "closed" && !request.ExpiresAt.HasValue)
-                return BadRequest(new { success = false, message = "لطفاً تاریخ پایان نظرسنجی را مشخص کنید" });
+                expires = exp;
+            }
 
             var poll = new Poll
             {
@@ -46,10 +57,10 @@ namespace OrganizationalMessenger.Web.Controllers
                 AllowMultipleAnswers = request.AllowMultipleAnswers,
                 IsAnonymous = false,
                 IsActive = true,
-                // ✅ همه تاریخ‌ها با DateTime.Now (لوکال سرور)
-                ExpiresAt = request.PollType == "closed" ? request.ExpiresAt : null,
+                ExpiresAt = expires,
                 CreatedAt = DateTime.Now
             };
+
 
             _context.Polls.Add(poll);
             await _context.SaveChangesAsync();
@@ -159,6 +170,56 @@ namespace OrganizationalMessenger.Web.Controllers
         }
 
 
+        //private async Task<object?> GetPollData(int pollId, int userId)
+        //{
+        //    var poll = await _context.Polls
+        //        .Include(p => p.Options)
+        //            .ThenInclude(o => o.Votes)
+        //                .ThenInclude(v => v.User)
+        //        .FirstOrDefaultAsync(p => p.Id == pollId);
+
+        //    if (poll == null) return null;
+
+        //    // ⬅️ لاگ مهم برای دیباگ
+        //    Console.WriteLine($"[POLL] Id={poll.Id} ExpiresAt DB={poll.ExpiresAt:O}");
+
+        //    bool isExpired = poll.ExpiresAt.HasValue && DateTime.Now >= poll.ExpiresAt.Value;
+        //    bool isActive = poll.IsActive && !isExpired;
+        //    string pollType = poll.ExpiresAt.HasValue ? "closed" : "open";
+
+        //    var expiresAtString = poll.ExpiresAt?.ToString("yyyy-MM-ddTHH:mm:ss");
+        //    Console.WriteLine($"[POLL] Id={poll.Id} ExpiresAt JSON={expiresAtString}");
+
+
+        //    var rawPoll = await _context.Polls.AsNoTracking()
+        //        .FirstOrDefaultAsync(p => p.Id == pollId);
+
+
+        //    return new
+        //    {
+        //        id = poll.Id,
+        //        question = poll.Question,
+        //        isActive = isActive,
+        //        allowMultipleAnswers = poll.AllowMultipleAnswers,
+        //        pollType = pollType,
+        //        createdAt = poll.CreatedAt,
+        //        expiresAt = "2026-02-23T11:30:00",
+
+        //        options = poll.Options.OrderBy(o => o.DisplayOrder).Select(o => new
+        //        {
+        //            id = o.Id,
+        //            text = o.Text,
+        //            voteCount = o.Votes.Count,
+        //            hasVoted = o.Votes.Any(v => v.UserId == userId),
+        //            voters = o.Votes.Select(v => new
+        //            {
+        //                id = v.UserId,
+        //                name = v.User.FullName,
+        //                avatar = v.User.AvatarUrl
+        //            })
+        //        })
+        //    };
+        //}
 
         private async Task<object?> GetPollData(int pollId, int userId)
         {
@@ -216,7 +277,8 @@ namespace OrganizationalMessenger.Web.Controllers
         public bool AllowMultipleAnswers { get; set; }
         public int? GroupId { get; set; }
         public int? ChannelId { get; set; }
-        public DateTime? ExpiresAt { get; set; }  // ✅ اضافه شد
+        public string? ExpiresAt { get; set; }
+        // ✅ اضافه شد
 
     }
 

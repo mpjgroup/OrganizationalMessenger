@@ -104,12 +104,12 @@ export async function loadMessageSettings() {
 function getMessageDate(dateStr) {
     const date = new Date(dateStr);
     return date.toLocaleDateString('fa-IR', {
+        calendar: 'persian',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit'
     });
 }
-
 function isSameDay(date1, date2) {
     return date1.getFullYear() === date2.getFullYear() &&
         date1.getMonth() === date2.getMonth() &&
@@ -124,6 +124,7 @@ export function addDateSeparator(container, dateStr) {
 
     let label = '';
     const persianDate = date.toLocaleDateString('fa-IR', {
+        calendar: 'persian',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit'
