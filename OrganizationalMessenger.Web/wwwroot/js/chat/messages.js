@@ -50,6 +50,7 @@ function createReactionsHtml(reactions, messageId) {
 
 
 export async function loadMessageSettings() {
+    // ✅ ۱. لود تنظیمات پیام
     try {
         const response = await fetch('/Chat/GetMessageSettings');
 
@@ -61,19 +62,17 @@ export async function loadMessageSettings() {
                 editTimeLimit: 3600,
                 deleteTimeLimit: 7200
             });
-            return;
-        }
-
-        const result = await response.json();
-
-        if (result && result.success) {
-            setMessageSettings({
-                allowEdit: result.allowEdit || false,
-                allowDelete: result.allowDelete || false,
-                editTimeLimit: result.editTimeLimit || 3600,
-                deleteTimeLimit: result.deleteTimeLimit || 7200
-            });
-            console.log('✅ Message settings loaded:', messageSettings);
+        } else {
+            const result = await response.json();
+            if (result && result.success) {
+                setMessageSettings({
+                    allowEdit: result.allowEdit || false,
+                    allowDelete: result.allowDelete || false,
+                    editTimeLimit: result.editTimeLimit || 3600,
+                    deleteTimeLimit: result.deleteTimeLimit || 7200
+                });
+                console.log('✅ Message settings loaded:', messageSettings);
+            }
         }
     } catch (error) {
         console.warn('⚠️ Load settings error:', error.message);
@@ -83,25 +82,23 @@ export async function loadMessageSettings() {
             editTimeLimit: 3600,
             deleteTimeLimit: 7200
         });
+    }
 
-
-
-        // ✅ لود تنظیمات فوروارد
-        try {
-            const fwdResponse = await fetch('/Chat/GetForwardSettings');
-            if (fwdResponse.ok) {
-                const fwdResult = await fwdResponse.json();
-                window.displayOriginalNameInForward = fwdResult.displayOriginalName ?? true;
-                console.log('✅ Forward settings loaded:', window.displayOriginalNameInForward);
-            }
-        } catch (e) {
+    // ✅ ۲. لود تنظیمات فوروارد - خارج از catch! همیشه اجرا بشه
+    try {
+        const fwdResponse = await fetch('/Chat/GetForwardSettings');
+        if (fwdResponse.ok) {
+            const fwdResult = await fwdResponse.json();
+            window.displayOriginalNameInForward = fwdResult.displayOriginalName === true;
+            console.log('✅ Forward settings loaded:', window.displayOriginalNameInForward);
+        } else {
             window.displayOriginalNameInForward = true;
         }
-
-
+    } catch (e) {
+        console.warn('⚠️ Forward settings error:', e);
+        window.displayOriginalNameInForward = true;
     }
 }
-
 // ✅ توابع کمکی - قبل از loadMessages تعریف شوند
 function getMessageDate(dateStr) {
     const date = new Date(dateStr);

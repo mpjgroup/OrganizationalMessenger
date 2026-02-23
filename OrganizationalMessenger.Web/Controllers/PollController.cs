@@ -34,7 +34,6 @@ namespace OrganizationalMessenger.Web.Controllers
             if (request.Options == null || request.Options.Count < 2)
                 return BadRequest(new { success = false, message = "حداقل ۲ گزینه لازم است" });
 
-            // ✅ نظرسنجی بسته باید تاریخ پایان داشته باشه
             if (request.PollType == "closed" && !request.ExpiresAt.HasValue)
                 return BadRequest(new { success = false, message = "لطفاً تاریخ پایان نظرسنجی را مشخص کنید" });
 
@@ -46,9 +45,10 @@ namespace OrganizationalMessenger.Web.Controllers
                 ChannelId = request.ChannelId,
                 AllowMultipleAnswers = request.AllowMultipleAnswers,
                 IsAnonymous = false,
-                IsActive = true,  // ✅ همیشه فعاله تا ExpiresAt
+                IsActive = true,
+                // ✅ همه تاریخ‌ها با DateTime.Now (لوکال سرور)
                 ExpiresAt = request.PollType == "closed" ? request.ExpiresAt : null,
-                CreatedAt = DateTime.UtcNow  // ✅ UTC
+                CreatedAt = DateTime.Now
             };
 
             _context.Polls.Add(poll);
@@ -66,8 +66,6 @@ namespace OrganizationalMessenger.Web.Controllers
             }
             await _context.SaveChangesAsync();
 
-
-            // ✅ ایجاد پیام مرتبط با نظرسنجی
             var message = new Message
             {
                 SenderId = userId.Value,
@@ -76,7 +74,7 @@ namespace OrganizationalMessenger.Web.Controllers
                 Content = $"📊 نظرسنجی: {poll.Question}",
                 MessageText = $"📊 نظرسنجی: {poll.Question}",
                 Type = MessageType.Poll,
-                SentAt = DateTime.UtcNow,
+                SentAt = DateTime.Now,  // ✅ Local نه UTC
                 IsDelivered = false,
                 PollId = poll.Id
             };
@@ -86,8 +84,6 @@ namespace OrganizationalMessenger.Web.Controllers
 
             return Ok(new { success = true, pollId = poll.Id, messageId = message.Id });
         }
-
-
 
 
         [HttpPost("Vote")]
@@ -104,9 +100,12 @@ namespace OrganizationalMessenger.Web.Controllers
             if (option == null)
                 return NotFound(new { success = false, message = "گزینه یافت نشد" });
 
+            // ✅ چک فعال بودن + expire
             if (!option.Poll.IsActive)
                 return BadRequest(new { success = false, message = "نظرسنجی پایان یافته است" });
 
+            if (option.Poll.ExpiresAt.HasValue && DateTime.Now >= option.Poll.ExpiresAt.Value)
+                return BadRequest(new { success = false, message = "مهلت نظرسنجی به پایان رسیده است" });
             // چک رأی تکراری
             var existingVote = await _context.PollVotes
                 .FirstOrDefaultAsync(v => v.PollOptionId == request.OptionId && v.UserId == userId.Value);
@@ -166,11 +165,8 @@ namespace OrganizationalMessenger.Web.Controllers
 
             if (poll == null) return null;
 
-            // ✅ چک ExpiresAt - اگه زمان گذشته، غیرفعال کن
             bool isExpired = poll.ExpiresAt.HasValue && DateTime.Now >= poll.ExpiresAt.Value;
             bool isActive = poll.IsActive && !isExpired;
-
-            // ✅ نوع: اگه ExpiresAt داره → بسته (closed)
             string pollType = poll.ExpiresAt.HasValue ? "closed" : "open";
 
             return new
@@ -181,7 +177,8 @@ namespace OrganizationalMessenger.Web.Controllers
                 allowMultipleAnswers = poll.AllowMultipleAnswers,
                 pollType = pollType,
                 createdAt = poll.CreatedAt,
-                expiresAt = poll.ExpiresAt,  // ✅ اضافه شد
+                // ✅ ExpiresAt بدون تبدیل - مستقیم ISO فرمت
+                expiresAt = poll.ExpiresAt?.ToString("yyyy-MM-ddTHH:mm:ss"),
                 options = poll.Options.OrderBy(o => o.DisplayOrder).Select(o => new
                 {
                     id = o.Id,
@@ -197,7 +194,6 @@ namespace OrganizationalMessenger.Web.Controllers
                 })
             };
         }
-
 
 
         private int? GetCurrentUserId()

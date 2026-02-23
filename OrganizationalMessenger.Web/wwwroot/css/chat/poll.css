@@ -458,35 +458,37 @@
 
 
 
+
+
+/* ✅ اطلاعات زمان نظرسنجی */
 .poll-timer-info {
     display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
-    margin: 4px 0;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    margin: 8px 0;
     background: rgba(33, 150, 243, 0.1);
     border-radius: 8px;
-    font-size: 12px;
+    border-right: 3px solid #2196F3;
+    font-size: 13px;
     color: #64B5F6;
-    flex-wrap: wrap;
 }
 
     .poll-timer-info i {
         font-size: 14px;
+        margin-left: 4px;
     }
 
     .poll-timer-info.expired {
         background: rgba(244, 67, 54, 0.1);
+        border-right-color: #F44336;
         color: #EF5350;
     }
 
 .poll-remaining {
     color: #FFC107;
     font-weight: 600;
-}
-
-.poll-timer-info.expired .poll-remaining {
-    display: none;
+    font-size: 12px;
 }
 
 .poll-closed-badge {
@@ -495,4 +497,25 @@
     padding: 2px 8px;
     border-radius: 12px;
     font-size: 11px;
+    white-space: nowrap;
+}
+
+.poll-timed-badge {
+    background: rgba(255, 193, 7, 0.2);
+    color: #FFC107;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.poll-voted-badge {
+    color: #4CAF50;
+    font-size: 12px;
+}
+
+.poll-vote-btn.voted {
+    background: rgba(76, 175, 80, 0.15) !important;
+    border-color: #4CAF50 !important;
+    color: #4CAF50 !important;
 }
