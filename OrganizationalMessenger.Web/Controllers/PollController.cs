@@ -242,9 +242,9 @@ namespace OrganizationalMessenger.Web.Controllers
                 isActive = isActive,
                 allowMultipleAnswers = poll.AllowMultipleAnswers,
                 pollType = pollType,
-                createdAt = poll.CreatedAt,
+                createdAt = poll.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture),
                 // ✅ ExpiresAt بدون تبدیل - مستقیم ISO فرمت
-                expiresAt = poll.ExpiresAt?.ToString("yyyy-MM-ddTHH:mm:ss"),
+                expiresAt = poll.ExpiresAt?.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture),
                 options = poll.Options.OrderBy(o => o.DisplayOrder).Select(o => new
                 {
                     id = o.Id,

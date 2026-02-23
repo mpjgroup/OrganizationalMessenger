@@ -236,7 +236,7 @@ namespace OrganizationalMessenger.Web.Controllers
                         createdAt = m.Poll.CreatedAt,
                         // ✅ expiresAt - این مهمترین فیلد هست!
                         expiresAt = m.Poll.ExpiresAt.HasValue
-                            ? m.Poll.ExpiresAt.Value.ToString("yyyy-MM-ddTHH:mm:ss")
+                            ? m.Poll.ExpiresAt.Value.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)
                             : (string?)null,
                         options = m.Poll.Options.OrderBy(o => o.DisplayOrder).Select(o => new
                         {

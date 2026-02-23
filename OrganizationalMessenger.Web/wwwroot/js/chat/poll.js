@@ -292,28 +292,24 @@ export function renderPollMessage(poll) {
     const canVote = poll.isActive && !isExpired;
 
     // ✅ اطلاعات زمان - شمسی HARDCODE بر اساس DB
+    // ✅ اطلاعات زمان - تبدیل خودکار به شمسی
     let timerHtml = '';
-    if (poll.pollType === 'closed' && expiresDate) {
+    if (poll.pollType === 'closed' && expiresDate && !isNaN(expiresDate.getTime())) {
         const toFaDigits = (str) => str.replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
-        // ساعت درست از DB
+        // ✅ ساعت از Date object (Local)
         const hours = expiresDate.getHours().toString().padStart(2, '0');
         const mins = expiresDate.getMinutes().toString().padStart(2, '0');
         const persianTime = toFaDigits(`${hours}:${mins}`);
 
-        // ✅ تاریخ شمسی بر اساس DB 2026-02-27 = 1404/12/08
-        const weekdays = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'];
-        const pWeekday = weekdays[expiresDate.getDay()];
-
-        // محاسبه دقیق بر اساس سال میلادی 2026
-        const gYear = expiresDate.getFullYear();  // 2026
-        const gMonth = expiresDate.getMonth() + 1; // 2 (اسفند)
-        const gDay = expiresDate.getDate();        // 27
-
-        // تبدیل دقیق: 2026 - 622 = 1404
-        let pYear = 1404; // ثابت برای تست
-        const pMonth = 12; // اسفند
-        const persianDate = `${pWeekday} ${toFaDigits(gDay.toString().padStart(2, '0'))}/${toFaDigits(pMonth.toString().padStart(2, '0'))}/${toFaDigits(pYear.toString())}`;
+        // ✅ تاریخ شمسی - با Intl.DateTimeFormat calendar=persian
+        const persianDate = new Intl.DateTimeFormat('fa-IR', {
+            calendar: 'persian',
+            weekday: 'long',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).format(expiresDate);
 
         if (canVote) {
             const now = new Date();

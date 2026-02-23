@@ -600,9 +600,9 @@
     }
 /* برای پیام‌های ارسالی */
 .message.sent .message-link {
-    color: #E1F5FE;
+    color: #302fa6;
 }
 
     .message.sent .message-link:hover {
-        color: #fff;
+        color: #0b09ff;
     }
