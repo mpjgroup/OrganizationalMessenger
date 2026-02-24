@@ -89,6 +89,33 @@ namespace OrganizationalMessenger.Web.Controllers
             return Json(users);
         }
 
+
+
+        [HttpGet]
+        [Route("Chat/Permissions")]
+        
+        public IActionResult GetPermissions(int userId)
+        {
+            try
+            {
+                var user = _context.Users.Find(userId);
+                if (user == null) return NotFound(new { success = false });
+
+                return Ok(new
+                {
+                    success = true,
+                    canCreateGroup = user.CanCreateGroup,
+                    canCreateChannel = user.CanCreateChannel
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, error = ex.Message });
+            }
+        }
+
+
+
         // دریافت پیامهای یک چت
         // دریافت پیامهای یک چت - با Pagination
         [HttpGet]

@@ -208,7 +208,7 @@ export class ChannelManager {
             }
         } catch (error) {
             console.error('❌ Create channel error:', error);
-            alert(`خطا در ایجاد کانال: ${error.message}`);
+            alert(`خطا در ایجاد کانال: عدم دسترسی برای ایجاد کانال ${error.message}`);
         } finally {
             if (submitBtn) {
                 submitBtn.disabled = false;

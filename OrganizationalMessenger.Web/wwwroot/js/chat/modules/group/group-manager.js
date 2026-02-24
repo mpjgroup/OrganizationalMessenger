@@ -203,7 +203,7 @@ export class GroupManager {
             }
         } catch (error) {
             console.error('❌ Create group error:', error);
-            alert(`خطا در ایجاد گروه: ${error.message}`);
+            alert(`خطا در ایجاد گروه:عدم دسترسی برای ایجاد گروه ${error.message}`);
         } finally {
             if (submitBtn) {
                 submitBtn.disabled = false;

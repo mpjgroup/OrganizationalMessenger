@@ -14,6 +14,7 @@ import './modules/channel/channel-manager.js';
 // ✅ اضافه کردن sendMessage
 import './sendMessage.js';
 
+
 export async function initChat() {
     window.currentUserId = parseInt(document.getElementById('currentUserId')?.value || '0');
     console.log('🔍 Current User ID:', window.currentUserId);
@@ -31,10 +32,12 @@ export async function initChat() {
     const conn = await setupSignalR();
     setConnection(conn);
 
+
     setupEventListeners();
     setupScrollListener();
-    initCreateButton();
-    requestNotificationPermission(); // ✅ درخواست مجوز نوتیفیکیشن
+    initCreateButton();  // ✅ حالا window.canCreateGroup ست شده
+    requestNotificationPermission();
+
 
     window.addEventListener('focus', function () {
         setIsPageFocused(true);
@@ -50,6 +53,11 @@ export async function initChat() {
 
     console.log('✅ Init complete');
 }
+
+
+
+
+
 
 async function setupEventListeners() {
     console.log('🎯 Setting up event listeners...');
@@ -117,7 +125,7 @@ async function setupEventListeners() {
         }
     });
 
-   
+
 
     setupVoiceRecording();
     setupChatSearch();
@@ -217,12 +225,23 @@ async function setupHeaderEventListeners() {
     console.log('✅ Header event listeners attached');
 }
 
-function initCreateButton() {
+async function initCreateButton() {
     const createBtn = document.getElementById('createMenuBtn');
     if (!createBtn) return;
 
-    const canGroup = window.canCreateGroup === true;
-    const canChannel = window.canCreateChannel === true;
+    //const canGroup = window.canCreateGroup === true;
+    //const canChannel = window.canCreateChannel === true;
+
+
+
+    const response = await fetch(`/Chat/Permissions?userId=${window.currentUserId}`);
+    const result = await response.json();
+
+    // ✅ ست کردن global variables
+    const canGroup = window.canCreateGroup = result.canCreateGroup || false;
+    const canChannel = window.canCreateChannel = result.canCreateChannel || false;
+
+
 
     // اگه هیچ دسترسی نداره، دکمه مخفی بمونه
     if (!canGroup && !canChannel) {
@@ -234,7 +253,10 @@ function initCreateButton() {
 
     createBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-
+        if (canGroup && canChannel) {
+            showCreatePopup()
+            return;
+        }
         // اگه فقط یکی دسترسی داره، مستقیم بره
         if (canGroup && !canChannel) {
             // مستقیم گروه
@@ -247,8 +269,10 @@ function initCreateButton() {
             return;
         }
 
-        // هر دو دسترسی → پاپ‌آپ
-        showCreatePopup();
+
+
+
+
     });
 }
 

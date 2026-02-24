@@ -4,6 +4,8 @@
 
 import { renderPollMessage } from './poll.js';
 export { scrollToBottom } from './utils.js';
+import { setReplyingToMessage } from './variables.js';
+
 import {
     currentChat, isLoadingMessages, setIsLoadingMessages, hasMoreMessages, setHasMoreMessages,
     lastSenderId, setLastSenderId, messageGroupCount, setMessageGroupCount,
@@ -13,7 +15,7 @@ import { escapeHtml, formatPersianTime, scrollToBottom, getInitials, getCsrfToke
 import { renderFileAttachment } from './files.js';
 import { connection } from './variables.js';
 
-// ✅ فقط یک بار import کنید و re-export کنید
+
 
 // ✅ Export کردن messageSettings برای دسترسی global
 window.messageSettings = messageSettings;
@@ -52,6 +54,9 @@ function createReactionsHtml(reactions, messageId) {
 
 export async function loadMessageSettings() {
     // ✅ ۱. لود تنظیمات پیام
+
+
+    
     try {
         const response = await fetch('/Chat/GetMessageSettings');
 

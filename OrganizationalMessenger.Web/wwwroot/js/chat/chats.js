@@ -404,10 +404,6 @@ function getOnlineStatusInfo(chat) {
     }
 }
 
-// ✅ فرمت زمان آخرین بازدید - با تاریخ شمسی و روز هفته
-// ✅ فرمت زمان آخرین بازدید - با روز هفته و ساعت دقیق
-// ✅ فرمت زمان آخرین بازدید - با تاریخ شمسی کامل
-// ✅ فرمت زمان آخرین بازدید - با تاریخ شمسی کامل
 
 
 // ✅ فرمت زمان آخرین بازدید - با روز هفته و ساعت دقیق
@@ -437,6 +433,8 @@ function formatLastSeen(lastSeenStr) {
 
 
 export async function selectChat(chatEl) {
+    document.getElementById('replyPreview')?.remove();
+   // alert('');
     console.log('🔄 Selecting chat:', chatEl.dataset.chatId);
 
     setLastSenderId(null);
